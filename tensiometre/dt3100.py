@@ -25,8 +25,22 @@ def get_resource_manager():
             #fall back on pure python implementation of VISA
             _resource_manager = visa.ResourceManager('@py')
     return _resource_manager
+    
+def recover(ip='169.254.3.100')
+    """Recover the basic state of the instrument with low-level commands"""
+    with closing(get_resource_manager().open_resource(
+        'TCPIP::%s::10001::SOCKET'%ip
+    )) as inst:
+        inst.write_termination = '\r'
+        inst.read_termination = '\r\n'
+        inst.timeout = 2000
+        lib = inst.visalib
+        session = inst.session
+        s = lib.sessions[session].interface
+        print(inst.query('$MMD0'))
 
 class ControllerInfo:
+    """Controller information"""
     def __init__(self, answer):
         m = re.match(
             '\$INDSN([0-9]+);PC([0-9]+);RI([A-Z]+);SW([0-9][0-9][a-z]);OP([0-9]{1,2});NM(.{,32})OK',
@@ -52,6 +66,7 @@ class ControllerInfo:
         ]).format(**self.__dict__)
     
 class SensorInfo:
+    """Sensor informations"""
     def __init__(self, answer):
         m = re.match(
             '\$SENSN([0-9]+);PC([0-9]+);RI([A-Z]+);OP([0-9]+);NM([SU][0-9 ][0-9 ]);L([0-9]+);SMR([0-9]+);MMR([0-9]+);EMR([0-9]+)OK',
@@ -91,7 +106,7 @@ class SensorInfo:
         return values / 65535 * self.range
 
 class DT3100:
-    
+    """Class to communicate with MicroEpsilon DT3100 controller"""
     def __init__(self, iIPAddress = '169.254.3.100'):
         self.iIPAddress = '169.254.3.100'
         self.inst = get_resource_manager().open_resource('TCPIP::%s::10001::SOCKET'%self.iIPAddress)
@@ -106,8 +121,8 @@ class DT3100:
         self._buffer = b''
     
     def close(self):
+        """End acquisition, clear internal buffers and close the connection to the instrument."""
         self.end_acquisition()
-        #self.inst.visalib.sessions[self.inst.session].interface.close()
         self.inst.close()
     
     def _status(self):
@@ -232,6 +247,7 @@ class DT3100:
         
     @property
     def sensor_type(self):
+        """Type of the sensor"""
         sensorname = "EP%s" % self.sensor.nm
         if self.customer_specific:
             sensorname += "-LC"
@@ -261,6 +277,7 @@ class DT3100:
         ))
     
     def start_aquisition(self):
+        """Set the instrument to continuous acquisition mode."""
         answer = self.inst.query('$MMD1')
         if answer == '$MMD1OK':
             self.mmd = 1
@@ -274,15 +291,14 @@ class DT3100:
             self.start_aquisition()
         buffer = b''
         while len(self._buffer)<3*N:
-            #print(len(self._buffer))
             self._buffer += self.inst.read_raw(3*N-len(buffer))
-            #print(len(self._buffer))
         buffer = self._buffer[:3*N]
         self._buffer = self._buffer[3*N:]
         return self.decode(buffer)
     
     
     def end_acquisition(self, maxsize=1024):
+        """Stop acquisition and returns all bytes read until the stop command is taken into account by the instrument. To avoid memory overload, only the last `maxsize` bytes are returned."""
         #set measuring mode to 0 (no acquisition)
         self.inst.write('$MMD0')
         self.mmd = 0
@@ -311,8 +327,8 @@ class DT3100:
     
     def set_averaging_number(self, avn):
         """Averaging number: 
-        0 for moving and recursive average = 4; for Median = 3
-        1 for moving and recursive average = 8; for Median = 5
+        0 for moving and recursive average =  4; for Median = 3
+        1 for moving and recursive average =  8; for Median = 5
         2 for moving and recursive average = 16; for Median = 7
         3 for moving and recursive average = 32; for Median = 9"""
         if avn not in (0,1,2,3):
