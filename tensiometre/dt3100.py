@@ -26,7 +26,7 @@ def get_resource_manager():
             _resource_manager = visa.ResourceManager('@py')
     return _resource_manager
     
-def recover(ip='169.254.3.100')
+def recover(ip='169.254.3.100'):
     """Recover the basic state of the instrument with low-level commands"""
     with closing(get_resource_manager().open_resource(
         'TCPIP::%s::10001::SOCKET'%ip
