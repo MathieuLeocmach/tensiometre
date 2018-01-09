@@ -2,11 +2,11 @@ import numpy as np
 from contextlib import closing
 from matplotlib import pyplot as plt
 from IPython import display
-from .dt3100 import DT3100
+from dt3100 import DT3100, ureg
 
 #physical units
-from pint import UnitRegistry
-ureg = UnitRegistry()
+#from pint import UnitRegistry
+#ureg = UnitRegistry()
 Q_ = ureg.Quantity
 ureg.default_format = '~P'
 
@@ -39,10 +39,17 @@ def show_measurement(capteur, ndisplayed = 2**13, chunk = None, ymin=None, ymax=
             return
 
 if __name__ == '__main__':
+    import argparse
     parser = argparse.ArgumentParser(description='Display measurements from a DT3100 controller in a rolling graph (In Notebook only).')
     parser.add_argument('ip', nargs='?', default='169.254.3.100', help='IP address of the controller.')
-    parser.add_argument('--avt', default='0', help=DT3100.set_averaging_type.__doc__)
-    parser.add_argument('--avn', default='0', help=DT3100.set_averaging_number.__doc__)
+    parser.add_argument(
+        '--avt', default=0, type=int, 
+        help=DT3100.set_averaging_type.__doc__
+    )
+    parser.add_argument(
+        '--avn', default=0, type=int, 
+        help=DT3100.set_averaging_number.__doc__
+    )
     parser.add_argument('--ymin', default=None, help='minimum distance')
     parser.add_argument('--ymax', default=None, help='maximum distance')
     parser.add_argument('--tw', default=1.0, type=float, help='Width of the time window, in seconds.')
