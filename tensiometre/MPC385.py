@@ -1,0 +1,126 @@
+from contextlib import closing
+import struct
+import numpy as np
+import serial
+
+#from pyftdi.ftdi import Ftdi
+#from pyftdi.serialext import serial_for_url
+#allow the library to look for custom vendor and product ID
+#Ftdi.add_custom_vendor(0x1342, 'Sutter Instrument')
+#Ftdi.add_custom_product(0x1342, 0x0001, 'ROE-200')
+
+#16 microsteps per microns
+_ISTEP = 16
+_STEP = 1./_ISTEP
+
+class MPC385:
+    """Class to interact with a Sutter MPC-385 (=ROE-200 + MPC-200) micromanipulator controller using only the pySerial on Linux. Requires a FTDI driver configured for the custom vendor and product IDs of the ROE-200.
+    
+    In short, one has to add the following line in /etc/udev/rules.d/99-ftdi.rules
+
+    ACTION=="add", ATTRS{idVendor}=="1342", ATTRS{idProduct}=="0001", RUN+="/sbin/modprobe ftdi_sio" RUN+="/bin/sh -c 'echo 1342 0001 > /sys/bus/usb-serial/drivers/ftdi_sio/new_id'"
+    """
+    def __init__(self, serial_number='SI9L8W3A', timeout=10.0):
+        #self.port = serial.Serial('/dev/ttyUSB0', baudrate=128000)
+        self.port = serial.Serial(
+            '/dev/serial/by-id/usb-Sutter_Sutter_Instrument_ROE-200_%s-if00-port0'%serial_number,
+            baudrate=128000,
+            timeout=timeout,
+        )
+        #self.port = serial_for_url('ftdi://0x1342:0x0001/1', baudrate=128000)
+        """internal position array for the 4 possible drives, in microsteps"""
+        self.positions = np.zeros((4,3), np.uint32)
+        self.update_positions()
+        
+    def close(self):
+        self.port.close()
+        
+    def query(self, command, pattern=''):
+        """Write a command and parse the answer using struct syntax, stripped of final CR byte"""
+        self.port.write(command)
+        s = struct.Struct(pattern)
+        answer = self.port.read(s.size+1)
+        assert answer[-1:] == b'\r', '%s does not end by \\r'%answer
+        try:
+            return s.unpack(answer[:-1])
+        except:
+            e = IOError("%s did not match pattern %s"%(answer[:-1], pattern))
+            e.answer = answer
+            raise e
+    
+    def currently_active_drive(self):
+        """The currently active drive and firmware version"""
+        K, Vl, Vh = self.query(b'K', '=BBB')
+        self.version = (Vl, Vh)
+        return K
+        
+    def connected_manipulators(self):
+        """Get number N of connected manipulators and drive status for all 4 drives"""
+        return self.query(b'U', '=B????')
+    
+    def change_drive(self, manipulator=1):
+        """Change the currently selected micromanupulator"""
+        m = int(manipulator)
+        if m not in [1,2,3,4]:
+            raise ValueError('manipulator should be 1, 2, 3 or 4')
+        answer, = self.query(struct.pack('=cB', b'I', m), '=c')
+        if answer == b'E':
+            raise ValueError('manipulator %s is not connected'%manipulator)
+        mo = struct.unpack('=B', answer)[0]
+        if mo != m:
+            raise ValueError('manipulator %s was selected instead of %s'%(mo, manipulator))
+        
+    def move_to_center(self):
+        """Move to position (0,0,0). This operation is blocking."""
+        self.query(b'N')
+        
+    def update_current_position(self):
+        """Get the currently selected micromanipulator and its current position in term of motor microsteps"""
+        t = self.query(b'C', '=Biii')
+        self.positions[t[0]-1] = t[1:]
+        return t
+    
+    def update_positions(self):
+        """Update the internal value of current positions of all connected manipulators."""
+        #remember the current drive
+        activedrive = self.currently_active_drive()
+        for m, ok in enumerate(self.connected_manipulators()):
+            if m>0 and ok:
+                self.change_drive(m)
+                self.update_current_position()
+        #change back to the original drive
+        self.change_drive(activedrive)
+        
+    def step2um(self, pos):
+        """Convert a position or an array of positions in microsteps to microns"""
+        return pos * _STEP
+    
+    def um2step(self, pos):
+        """Convert a position or an array of positions in microns to microsteps"""
+        return (pos * _ISTEP).astype(int)
+    
+    def get_position(self, m=None):
+        """Get the current position in microns. Either for all manipulators (default) or one"""
+        if m is None:
+            return self.step2um(self.positions)
+        assert m in range(1,5), "Manipulator must be either None or in [1,2,3,4]"
+        return self.step2um(self.positions[m-1])
+    
+    def check_in_range(self, pos):
+        if pos<0 or pos >200000:
+            raise ValueError('position %s is not in the range [0,200000)')
+    
+    def move_straight(self, x, y, z, speed=16):
+        """Move in a straight line to specified coordinates (in microsteps). 
+        speed is the velocity of the longest moving axis, from 1 to 16"""
+        raise NotImplementedError("move_straight command as defined by ROE-200 manual makes the instrument hang.")
+        assert speed in range(1,17)
+        for pos in [x,y,z]:
+            self.check_in_range(pos)
+        self.port.write(struct.pack('=cBiii', b'S', speed-1, int(x),int(y),int(z)))
+    
+    def move_to(self, x,y,z):
+        """Fast, stereotypic movement with firmware controlled velocity. Final position in microsteps."""
+        for pos in [x,y,z]:
+            self.check_in_range(pos)
+        self.query(struct.pack('=ciii', b'M', int(x),int(y),int(z)))
