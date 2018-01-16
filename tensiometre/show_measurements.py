@@ -17,22 +17,20 @@ class Shower(Thread):
     def __init__(self, ringbuff, dt, ymin, ymax):
         Thread.__init__(self)
         self.ringbuff = ringbuff
-        self.dt = dt
-        self.ymin = ymin
-        self.ymax = ymax
+        ndisplayed = len(self.ringbuff)
+        #create empty plot
+        plt.clf()
+        self.hl, = plt.plot(dt * np.arange(ndisplayed), self.ringbuff)
+        #set x and y range
+        plt.xlim(0, dt.m * ndisplayed)
+        plt.xlabel('time (%s)' % dt.u)
+        plt.ylim(ymin, ymax)
+        plt.ylabel('distance (um)')
         self.go = True
         
     def run(self):
-        ndisplayed = len(self.ringbuff)
-        #create empty plot
-        hl, = plt.plot(self.dt * np.arange(ndisplayed), self.ringbuff)
-        #set x and y range
-        plt.xlim(0, self.dt.m * ndisplayed)
-        plt.xlabel('time (%s)' % self.dt.u)
-        plt.ylim(self.ymin, self.ymax)
-        plt.ylabel('distance (um)')
         while self.go:
-            hl.set_ydata(self.ringbuff)
+            self.hl.set_ydata(self.ringbuff)
             display.clear_output(wait=True)
             display.display(plt.gcf())
 
