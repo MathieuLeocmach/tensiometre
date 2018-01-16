@@ -1,3 +1,4 @@
+import time
 import numpy as np
 from contextlib import closing
 from matplotlib import pyplot as plt
@@ -13,27 +14,21 @@ ureg.default_format = '~P'
 
 
 
-class Shower(Thread):
-    def __init__(self, ringbuff, dt, ymin, ymax):
+class Updater(Thread):
+    """A thread to update continuously a ring buffer for sensor's data"""
+    def __init__(self, ringbuff, capteur, chunk=32):
         Thread.__init__(self)
-        self.ringbuff = ringbuff
-        ndisplayed = len(self.ringbuff)
-        #create empty plot
-        plt.clf()
-        self.hl, = plt.plot(dt * np.arange(ndisplayed), self.ringbuff)
-        #set x and y range
-        plt.xlim(0, dt.m * ndisplayed)
-        plt.xlabel('time (%s)' % dt.u)
-        plt.ylim(ymin, ymax)
-        plt.ylabel('distance (um)')
         self.go = True
+        self.capteur = capteur
+        self.ringbuff = ringbuff
+        self.chunk = chunk
         
     def run(self):
         while self.go:
-            self.hl.set_ydata(self.ringbuff)
-            display.clear_output(wait=True)
-            display.display(plt.gcf())
-
+            buff = self.capteur.readN(self.chunk)
+            self.ringbuff[:] = np.roll(self.ringbuff, -self.chunk)
+            self.ringbuff[-self.chunk:] = buff
+            
 def show_measurement(capteur, ndisplayed = 2**13, chunk = None, ymin=None, ymax=None):
     """Display measurements in a rolling graph"""
     if chunk is None:
@@ -41,21 +36,39 @@ def show_measurement(capteur, ndisplayed = 2**13, chunk = None, ymin=None, ymax=
     #unit time per sample
     dt = capteur.unit_time()
     ringbuff = np.zeros(ndisplayed, float)
+    ringbuff[:] = capteur.readN(ndisplayed)
     #set x and y range
     if ymin is None:
         ymin = capteur.sensor.smr.m
     if ymax is None:
         ymax = capteur.sensor.emr.m
-    shower = Shower(ringbuff, dt, ymin, ymax)
-    shower.start()
+    #create empty plot
+    plt.figure('DT3100')
+    plt.clf()
+    hl, = plt.plot(dt * np.arange(ndisplayed), ringbuff)
+    #set x and y range
+    plt.xlim(0, dt.m * ndisplayed)
+    plt.xlabel('time (%s)' % dt.u)
+    plt.ylim(ymin, ymax)
+    plt.ylabel('distance (um)')
+    updt = Updater(ringbuff, capteur, chunk)
+    updt.start()
     while True:
         try:
-            ringbuff[:] = np.roll(ringbuff, -chunk)
-            ringbuff[-chunk:] = capteur.readN(chunk)
+            hl.set_ydata(ringbuff)
+            #If the graph is displayed inline in the notebook, 
+            #updating procedure is different
+            if plt.get_backend()[-6:] == 'inline':
+                display.clear_output(wait=True)
+                display.display(hl.axes.get_figure())
+                time.sleep(0.1)
+            else:
+                plt.draw()
+                plt.pause(0.1)
             
         except KeyboardInterrupt:
-            shower.go = False
-            shower.join()
+            updt.go = False
+            updt.join()
             return
 
 if __name__ == '__main__':
