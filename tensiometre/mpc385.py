@@ -30,7 +30,10 @@ class MPC385:
         #self.port = serial_for_url('ftdi://0x1342:0x0001/1', baudrate=128000)
         """internal position array for the 4 possible drives, in microsteps"""
         self.positions = np.zeros((4,3), np.uint32)
-        self.update_positions()
+        try:
+            self.update_positions()
+        except AssertionError as e:
+            raise ConnectionError("Unable to initialize micromanipulator state. Please unplug, turn off, wait, turn on, plug back.")
         
     def close(self):
         self.port.close()
