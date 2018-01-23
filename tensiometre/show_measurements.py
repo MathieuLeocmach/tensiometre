@@ -16,17 +16,14 @@ ureg.default_format = '~P'
 
 class Updater(Thread):
     """A thread to update continuously a ring buffer for sensor's data"""
-    def __init__(self, ringbuff, capteur, chunk=32, filename=None):
+    def __init__(self, ringbuff, capteur, chunk=32, file=False):
         Thread.__init__(self)
         self.go = True
         self.capteur = capteur
         self.ringbuff = ringbuff
         self.chunk = chunk
-        if filename is None:
-            self.file = False
-        else:
-            self.file = open(filename, 'wb')
-        
+        self.file = False
+                
     def run(self):
         while self.go:
             buff = self.capteur.readN(self.chunk)
@@ -34,8 +31,6 @@ class Updater(Thread):
             self.ringbuff[-self.chunk:] = buff
             if self.file:
                 buff.tofile(self.file)
-        if self.file:
-            self.file.close()
             
 class Shower:
     """A class to show a figure for a sensor"""
