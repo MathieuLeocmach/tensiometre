@@ -1,0 +1,3 @@
+[submodule "tensiometre/pid"]
+	path = tensiometre/pid
+	url = https://github.com/ivmech/ivPID.git
