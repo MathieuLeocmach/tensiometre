@@ -295,6 +295,31 @@ class DT3100:
         buffer = self._buffer[:3*N]
         self._buffer = self._buffer[3*N:]
         return self.decode(buffer)
+        
+    def readOne(self, timeout=1):
+        """Read the instantaneous distance, bypassing all buffers. Implemented for pyVISA-py only."""
+        #ensures no data is being streamed continuously
+        if self.mmd != 0:
+            self.end_aquisition()
+        #fetch the socket interface from the depth of pyVISA-py
+        lib = self.inst.visalib
+        session = self.inst.session
+        interface = lib.sessions[session].interface
+        #ask for a single distance
+        answer = self.inst.query('$GMD')
+        if answer != '$GMDOK':
+            raise ValueError("Unable to parse instrument answer: %s"%answer)
+        #wait for the interface to be readable
+        r, w, x = select.select([interface], [], [], timeout)
+        if interface not in r:
+            raise IOError("Timeout %ss after $GMD"%timeout)
+        #read 3 bytes directly from the interface, bypassing all pyVISA-py buffers
+        buff = bytearray()
+        while len(buff)<3:
+            ret = interface.recv(3)
+            buff.extend(ret)
+        #convert to a distance
+        return self.decode(buff)[0]
     
     
     def end_acquisition(self, maxsize=1024):
