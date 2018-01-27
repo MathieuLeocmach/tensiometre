@@ -16,21 +16,25 @@ ureg.default_format = '~P'
 
 class Updater(Thread):
     """A thread to update continuously a ring buffer for sensor's data"""
-    def __init__(self, ringbuff, capteur, chunk=32, file=False):
+    def __init__(self, ringbuff, capteur, chunk=32, outputFile=False, subsample=1):
         Thread.__init__(self)
         self.go = True
         self.capteur = capteur
         self.ringbuff = ringbuff
         self.chunk = chunk
-        self.file = False
+        self.file = outputFile
+        self.subsample = subsample
                 
     def run(self):
+        shape = (self.chunk // self.subsample, self.subsample)
+        leng = np.prod(shape)
         while self.go:
             buff = self.capteur.readN(self.chunk)
             self.ringbuff[:] = np.roll(self.ringbuff, -self.chunk)
             self.ringbuff[-self.chunk:] = buff
             if self.file:
-                buff.tofile(self.file)
+                buff[-leng:].reshape(shape).mean(-1).tofile(self.file)
+        self.capteur.end_acquisition()
             
 class Shower:
     """A class to show a figure for a sensor"""
