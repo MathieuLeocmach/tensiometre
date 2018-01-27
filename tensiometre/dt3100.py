@@ -1,5 +1,5 @@
 import visa
-import re, struct
+import re, struct, select
 import numpy as np
 #Let us have a context manager, not to forget to close instruments
 from contextlib import closing
