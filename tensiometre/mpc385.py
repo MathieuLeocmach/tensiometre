@@ -43,6 +43,7 @@ class MPC385:
         self.port.write(command)
         s = struct.Struct(pattern)
         answer = self.port.read(s.size+1)
+        assert len(answer) == s.size + 1, 'Answer too short (%d instead of %d), probably a timeout'%(len(answer), s.size + 1)
         assert answer[-1:] == b'\r', '%s does not end by \\r'%answer
         try:
             return s.unpack(answer[:-1])
@@ -100,6 +101,8 @@ class MPC385:
     
     def um2step(self, pos):
         """Convert a position or an array of positions in microns to microsteps"""
+        if np.isscalar(pos):
+            return int(pos * _ISTEP)
         return (pos * _ISTEP).astype(int)
     
     def get_position(self, m=None):
