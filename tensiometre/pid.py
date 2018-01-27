@@ -48,7 +48,7 @@ class PID:
 
     def clear(self):
         """Clears PID computations and coefficients"""
-        self.SetPoint = 0.0
+        self.setPoint = 0.0
 
         self.PTerm = 0.0
         self.ITerm = 0.0
@@ -73,7 +73,7 @@ class PID:
            Test PID with Kp=1.2, Ki=1, Kd=0.001 (test_pid.py)
 
         """
-        error = self.SetPoint - feedback_value
+        error = self.setPoint - feedback_value
 
         self.current_time = time.time()
         delta_time = self.current_time - self.last_time
