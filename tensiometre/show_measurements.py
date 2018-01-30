@@ -102,8 +102,8 @@ def show_measurement(capteur, ndisplayed = 2**13, chunk = None, ymin=None, ymax=
 
 if __name__ == '__main__':
     import argparse
-    parser = argparse.ArgumentParser(description='Display measurements from a DT3100 controller in a rolling graph (In Notebook only).')
-    parser.add_argument('ip', nargs='?', default='169.254.3.100', help='IP address of the controller.')
+    parser = argparse.ArgumentParser(description='Display measurements from a DT3100 sensor in a rolling graph (In Notebook only).')
+    parser.add_argument('ip', nargs='?', default='169.254.3.100', help='IP address of the DT3100.')
     parser.add_argument(
         '--avt', default=0, type=int, 
         help=DT3100.set_averaging_type.__doc__
