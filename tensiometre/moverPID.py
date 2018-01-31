@@ -2,15 +2,15 @@ import time
 from contextlib import closing
 from threading import Thread
 import numpy as np
-from tensiometre.dt3100 import DT3100
+from tensiometre.dt3100 import DT3100, ReadOne
 from tensiometre.mpc385 import MPC385
 from tensiometre.pid import PID
 
 class MoverPID_Z(Thread):
     """Thread in charge of controlling the Z position of the tensiometer so that the target stays at a given distance from the sensor."""
-    def __init__(self, inputfunction, mpc, pid=PID(), outputFile=False):
+    def __init__(self, capteur, mpc, pid=PID(), outputFile=False):
         Thread.__init__(self)
-        self.inputfunction = inputfunction
+        self.capteur = capteur
         self.mpc = mpc
         self.pid = pid
         if outputFile:
@@ -23,13 +23,24 @@ class MoverPID_Z(Thread):
         self.recorder.start()
         t0 = time.time()
         while self.go:
-            measure = self.inputfunction()
+            #ask asynchronously for a position measurement
+            reader = ReadOne(self.capteur)
+            reader.start()
+            #in parallel, ask for the current position of the micromanipulator
+            x,y,z = self.mpc.update_current_position()[-3:]
+            #wait for the position measurement
+            reader.join()
+            measure = reader.value.m
+            #feed to PID
             self.pid.update(measure)
+            #save state to file asynchronously
             if self.recorder:
                 self.recorder.queue.append([self.pid.current_time-t0, measure, self.pid.output])
-            x,y,z = self.mpc.update_current_position()[-3:]
+            #translate PID output in microns into 
+            #the new position of the micromanipulator in steps
             newz = z - self.mpc.um2step(self.pid.output)
             newz = int(min(200000, max(0, newz)))
+            #update micromanipulator position
             if newz != z:
                 self.mpc.move_to(x, y, newz)
         while len(self.recorder.queue)>0:
@@ -58,6 +69,7 @@ def step_response(outname, kp, ki=0, kd=0, dz=10., originalsetpoint=None):
         capteur.set_averaging_type(3)
         capteur.set_averaging_number(3)
         dt = capteur.unit_time()
+        reader = ReadOne(capteur)
         #remember original positions of the sensor and actuator
         if originalsetpoint is None:
             originalsetpoint = capteur.readOne().m
@@ -66,7 +78,7 @@ def step_response(outname, kp, ki=0, kd=0, dz=10., originalsetpoint=None):
         pid = PID(kp, ki, kd)
         pid.setPoint = originalsetpoint
         with open(outname, "wb") as fout:
-            m = MoverPID_Z(lambda : capteur.readOne().m, mpc, pid, outputFile=fout)
+            m = MoverPID_Z(capteur, mpc, pid, outputFile=fout)
             m.start()
             time.sleep(1)
             pid.setPoint += dz

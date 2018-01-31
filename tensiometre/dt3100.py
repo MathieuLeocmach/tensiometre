@@ -1,6 +1,7 @@
-import visa
 import re, struct, select
+from threading import Thread
 import numpy as np
+import visa
 #Let us have a context manager, not to forget to close instruments
 from contextlib import closing
 
@@ -362,3 +363,23 @@ class DT3100:
         if answer != '$AVN%dOK'%avn:
             raise ValueError("Unable to parse instrument answer: %s"%answer)
         self.avn = avn
+        
+  
+class ReadOne(Thread):
+    """Thread to read asynchronously a single value from a DT3100.
+    
+    Usage:
+    with closing(DT3100()) as sensor:
+        r = ReadOne(sensor)
+        for i in range(10):
+            r.start()
+            #do things
+            r.join()
+            print(r.value)"""
+    def __init__(self, sensor):
+        Thread.__init__(self)
+        self.sensor = sensor
+        self.value = None
+    
+    def run(self):
+        self.value = self.sensor.readOne()
