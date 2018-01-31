@@ -51,7 +51,7 @@ class Recorder(Thread):
                 np.array(self.queue.pop(0)).tofile(self.file)
             time.sleep(0.1)
 
-def step_response(outname, kp, ki=0, kd=0, dz=10.):
+def step_response(outname, kp, ki=0, kd=0, dz=10., originalsetpoint=None):
     """Perform a single step of dz microns and record the PID response to a file named outname."""
     with closing(DT3100('169.254.3.100')) as capteur, closing(MPC385()) as mpc:
         #setting up sensor
@@ -59,7 +59,8 @@ def step_response(outname, kp, ki=0, kd=0, dz=10.):
         capteur.set_averaging_number(3)
         dt = capteur.unit_time()
         #remember original positions of the sensor and actuator
-        originalsetpoint = capteur.readOne().m
+        if originalsetpoint is None:
+            originalsetpoint = capteur.readOne().m
         x0,y0,z0 = mpc.update_current_position()[1:]
         #setting up PID
         pid = PID(kp, ki, kd)
@@ -70,10 +71,23 @@ def step_response(outname, kp, ki=0, kd=0, dz=10.):
             time.sleep(1)
             pid.setPoint += dz
             time.sleep(20)
+            #stop PID
             m.go = False
             m.join()
         #move the actuator back to its original position
         mpc.move_to(x0, y0, z0)
+    #read back the data and print some metrics
+    meas = np.fromfile(outname)
+    ts, measured, out = meas.reshape((meas.shape[0]//3, 3)).T
+    if not np.any(np.abs(measured-originalsetpoint-10)<mpc.step2um(1)):
+        print("does not converge")
+    else:
+        print("cverge\teRMS\t%overshoot")
+        print('%g\t%g\t%g'%(
+            ts[np.where(np.abs(measured-originalsetpoint-dz)<mpc.step2um(1))[0][0]-1],
+            np.sqrt(np.mean((measured[np.where(ts>2)[0][0]:]-originalsetpoint-dz)**2)),
+            100*(measured.max()-originalsetpoint-dz)/dz
+        ))
 
 if __name__ == '__main__':
     import argparse
@@ -83,6 +97,8 @@ if __name__ == '__main__':
     parser.add_argument('--ki', default=0., type=float, help='Gain of the integral term of the PID')
     parser.add_argument('--kd', default=0., type=float, help='Gain of the derivative term of the PID')
     parser.add_argument('--dz', default=10., type=float, help='Amplitude of the step.')
+    parser.add_argument('--setPoint', default=None, type=float, help='Original set point of the PID.')
     parser.add_argument('--ip', default='169.254.3.100', help='IP address of the DT3100.')
     args = parser.parse_args()
-    step_response(args.outName, args.kp, args.ki, args.kd, args.dz)
+    step_response(args.outName, args.kp, args.ki, args.kd, args.dz, args.setPoint)
+    
