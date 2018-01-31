@@ -371,11 +371,10 @@ class ReadOne(Thread):
     Usage:
     with closing(DT3100()) as sensor:
         r = ReadOne(sensor)
-        for i in range(10):
-            r.start()
-            #do things
-            r.join()
-            print(r.value)"""
+        r.start()
+        #do things
+        r.join()
+        print(r.value)"""
     def __init__(self, sensor):
         Thread.__init__(self)
         self.sensor = sensor
