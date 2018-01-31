@@ -108,9 +108,9 @@ class SensorInfo:
 
 class DT3100:
     """Class to communicate with MicroEpsilon DT3100 controller"""
-    def __init__(self, iIPAddress = '169.254.3.100'):
-        self.iIPAddress = iIPAddress
-        self.inst = get_resource_manager().open_resource('TCPIP::%s::10001::SOCKET'%self.iIPAddress)
+    def __init__(self, IPAddress = '169.254.3.100'):
+        self.IPAddress = IPAddress
+        self.inst = get_resource_manager().open_resource('TCPIP::%s::10001::SOCKET'%IPAddress)
         self.inst.write_termination = '\r'
         self.inst.read_termination = '\r\n'
         self.inst.timeout = 2000
