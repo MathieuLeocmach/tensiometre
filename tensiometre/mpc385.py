@@ -113,8 +113,8 @@ class MPC385:
         return self.step2um(self.positions[m-1])
     
     def check_in_range(self, pos):
-        if pos<0 or pos >200000:
-            raise ValueError('position %s is not in the range [0,200000)')
+        if pos<0 or pos >400000:
+            raise ValueError('position %s is not in the range [0,400000)'%pos)
     
     def move_straight(self, x, y, z, speed=16):
         """Move in a straight line to specified coordinates (in microsteps). 
