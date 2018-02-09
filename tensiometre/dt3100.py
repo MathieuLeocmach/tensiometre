@@ -382,3 +382,14 @@ class ReadOne(Thread):
     
     def run(self):
         self.value = self.sensor.readOne()
+        
+def read_both(sensorA, sensorB):
+    """Read both sensors asynchronously"""
+    readerA = ReadOne(sensorA)
+    readerB = ReadOne(sensorB)
+    readerA.start()
+    readerB.start()
+    #do other things
+    readerA.join()
+    readerB.join()
+    return readerA.value.m, readerB.value.m

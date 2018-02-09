@@ -6,39 +6,6 @@ from tensiometre.dt3100 import DT3100, ReadOne
 from tensiometre.mpc385 import MPC385
 from tensiometre.pid import PID
 
-def calibrate_transfer_matrix(dx=100, dz=100, nsamples=1):
-    """To calibrate, mechanically block the head of the cantilever at least from the bottom and the positive x direction (left). The resulting matrix allows to convert sensor measurements into micromanipulator coordinates."""
-    with closing(DT3100('169.254.3.100')) as sensorA, closing(DT3100('169.254.4.100')) as sensorB, closing(MPC385()) as mpc:
-        sensors = [sensorA, sensorB]
-        #setting up sensors
-        for sensor in sensors:
-            sensor.set_averaging_type(3)
-            sensor.set_averaging_number(3)
-        #remember original positions of the sensors and actuator
-        ab0 = np.mean([
-            [sensor.readOne().m for sensor in sensors] 
-            for i in range(nsamples)], 0)
-        assert ab0.min()>0 and ab0.max()<800
-        x0,y0,z0 = mpc.update_current_position()[1:]
-        #move along x
-        mpc.move_to(x0+mpc.um2step(dx),y0,z0)
-        abx = np.mean([
-            [sensor.readOne().m for sensor in sensors] 
-            for i in range(nsamples)], 0)
-        assert abx.min()>0 and abx.max()<800
-        #move along z
-        mpc.move_to(x0,y0,z0+mpc.um2step(dz))
-        abz = np.mean([
-            [sensor.readOne().m for sensor in sensors] 
-            for i in range(nsamples)], 0)
-        assert abz.min()>0 and abz.max()<800
-        #move back to original position
-        mpc.move_to(x0,y0,z0)
-    #the transfer matrix from actuator to sensor coordinates is the dispacements 
-    #we just measured as column vectors
-    xy2ab = ((np.array([abx, abz])-ab0).T/[dx,dz])
-    return np.linalg.inv(xy2ab)
-    
 
 class MoverPID_Z(Thread):
     """Thread in charge of controlling the Z position of the tensiometer so that the target stays at a given distance from the sensor."""
