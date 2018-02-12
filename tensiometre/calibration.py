@@ -1,5 +1,6 @@
 from contextlib import closing
 import numpy as np
+from scipy.optimize import curve_fit
 from tensiometre.dt3100 import DT3100, ReadOne, read_both
 from tensiometre.mpc385 import MPC385
 from matplotlib import pyplot as plt
@@ -38,11 +39,14 @@ def two_points(dx=100, dz=100, nsamples=1):
     return np.linalg.inv(xy2ab)
 
 
-def log__sampled(repeat = 10):
+def log_sampled(repeat = 10):
     """To calibrate, mechanically block the head of the cantilever at least from the bottom and the positive x direction (left). Test 11 dispacements in each direction, sampled in lag scaleThe resulting matrix allows to convert sensor measurements into micromanipulator coordinates. Returns both calibration matrix and figure testing linearity."""
     measures = np.zeros((11,4))
     with closing(DT3100('169.254.3.100')) as sensorA, closing(DT3100('169.254.4.100')) as sensorB, closing(MPC385()) as actuator:
         sensors = [sensorA, sensorB]
+        for sensor in sensors:
+            sensor.set_averaging_type(3)
+            sensor.set_averaging_number(3)
         #remember original positions of the sensors and actuator
         x0, y0, z0 = actuator.update_current_position()[1:]
         initial = np.zeros(2)
