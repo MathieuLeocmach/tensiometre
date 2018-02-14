@@ -127,10 +127,10 @@ class MPC385:
         self.query(b'F', '')
         #send command
         self.port.write(struct.pack('=cB', b'S', speed-1))
-        #wait 30ms
-        time.sleep(0.03)
+        #wait 24ms
+        time.sleep(0.024)
         #send coordinates to move to
-        self.port.write(struct.pack('=iii', int(x),int(y),int(z)))
+        self.query(struct.pack('=iii', int(x),int(y),int(z)), '')
     
     def move_to(self, x,y,z):
         """Fast, stereotypic movement with firmware controlled velocity. Final position in microsteps."""
