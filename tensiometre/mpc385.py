@@ -44,7 +44,7 @@ class MPC385:
         s = struct.Struct(pattern)
         answer = self.port.read(s.size+1)
         assert len(answer) == s.size + 1, 'Answer too short (%d instead of %d), probably a timeout'%(len(answer), s.size + 1)
-        assert answer[-1:] == b'\r', '%s does not end by \\r'%answer
+        assert answer[-1:] == b'\r', '%s does not end by \\r (command was %s)'%(answer, command)
         try:
             return s.unpack(answer[:-1])
         except:
