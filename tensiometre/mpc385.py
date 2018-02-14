@@ -1,5 +1,5 @@
 from contextlib import closing
-import struct
+import struct, time
 import numpy as np
 import serial
 
@@ -119,11 +119,18 @@ class MPC385:
     def move_straight(self, x, y, z, speed=16):
         """Move in a straight line to specified coordinates (in microsteps). 
         speed is the velocity of the longest moving axis, from 1 to 16"""
-        raise NotImplementedError("move_straight command as defined by ROE-200 manual makes the instrument hang.")
+        #raise NotImplementedError("move_straight command as defined by ROE-200 manual makes the instrument hang.")
         assert speed in range(1,17)
         for pos in [x,y,z]:
             self.check_in_range(pos)
-        self.port.write(struct.pack('=cBiii', b'S', speed-1, int(x),int(y),int(z)))
+        #disable output
+        self.query(b'F', '')
+        #send command
+        self.port.write(struct.pack('=cB', b'S', speed-1))
+        #wait 30ms
+        time.sleep(0.03)
+        #send coordinates to move to
+        self.port.write(struct.pack('=iii', int(x),int(y),int(z)))
     
     def move_to(self, x,y,z):
         """Fast, stereotypic movement with firmware controlled velocity. Final position in microsteps."""
