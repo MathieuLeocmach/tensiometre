@@ -82,3 +82,39 @@ def log_sampled(repeat = 10):
     xy2ab = np.reshape(xy2ab, (2,2)).T
     ab2xy = np.linalg.inv(xy2ab)
     return ab2xy, fig
+
+
+
+def log_sampled_z(repeat = 10):
+    """To calibrate, mechanically block the head of the cantilever at least from the bottom and the positive x direction (left). Test 11 dispacements in each direction, sampled in lag scaleThe resulting matrix allows to convert sensor measurements into micromanipulator coordinates. Returns both calibration matrix and figure testing linearity."""
+    measures = np.zeros((11))
+    with closing(DT3100('169.254.4.100')) as sensorA, closing(MPC385()) as actuator:
+        sensors = [sensorA]
+        for sensor in sensors:
+            sensor.set_averaging_type(3)
+            sensor.set_averaging_number(3)
+        #remember original positions of the sensors and actuator
+        x0, y0, z0 = actuator.update_current_position()[1:]
+        initial = 0
+        for j in range(repeat):
+            initial += sensorA.readOne().m
+        initial /= repeat
+        #move along z
+        for i in range(len(measures)):
+            actuator.move_to(x0, y0, z0+2**i)
+            for j in range(repeat):
+                measures[i] += np.array(sensorA.readOne().m)
+        actuator.move_to(x0, y0, z0)
+    measures /= repeat
+    measures -= initial
+    #fit the results to get coefficients
+    dzs = actuator.step2um(2**np.arange(len(measures)))
+    plt.plot(dzs, measures, 'o')
+    func = lambda x,p: p * x
+    param = curve_fit(func, dzs, measures)
+    plt.plot(dzs, func(dzs, param)[0], ':')
+    return param[0][0]
+    #return b2z       
+
+
+
