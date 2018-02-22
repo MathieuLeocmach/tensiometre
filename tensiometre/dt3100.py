@@ -27,18 +27,18 @@ def get_resource_manager():
             _resource_manager = visa.ResourceManager('@py')
     return _resource_manager
     
-def recover(ip='169.254.3.100'):
+def recover(IPAddress='169.254.3.100'):
     """Recover the basic state of the instrument with low-level commands"""
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect((ip, 10001))
+    sock.connect((IPAddress, 10001))
     sock.send(b'$MMD0\r')
     time.sleep(0.04)
     answer = sock.recv(1024*4)
     sock.close()
     if len(answer)<9 or answer[-9:] != b'$MMD0OK\r\n':
-        print("%s not ready"%ip)
+        print("%s not ready"%IPAddress)
     else:
-        print("%s ready"%ip)
+        print("%s ready"%IPAddress)
 
 class ControllerInfo:
     """Controller information"""
@@ -110,10 +110,13 @@ class DT3100:
     """Class to communicate with MicroEpsilon DT3100 controller"""
     def __init__(self, IPAddress = '169.254.3.100'):
         self.IPAddress = IPAddress
-        self.inst = get_resource_manager().open_resource('TCPIP::%s::10001::SOCKET'%IPAddress)
-        self.inst.write_termination = '\r'
-        self.inst.read_termination = '\r\n'
-        self.inst.timeout = 2000
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.connect((IPAddress, 10001))
+        #self.inst = get_resource_manager().open_resource('TCPIP::%s::10001::SOCKET'%IPAddress)
+        #self.inst.write_termination = '\r'
+        #self.inst.read_termination = '\r\n'
+        #self.inst.timeout = 2000
+        self.end_acquisition()
         self._status()
         self._settings()
         self._controller_info()
@@ -124,11 +127,28 @@ class DT3100:
     def close(self):
         """End acquisition, clear internal buffers and close the connection to the instrument."""
         self.end_acquisition()
-        self.inst.close()
+        self.sock.close()
+        
+    def wait_readable(self):
+        """wait for the interface to be readable"""
+        r, w, x = select.select([self.sock], [], [], 1)
+        return self.sock in r
+        
+    def query(self, command):
+        """Write a command and read the answer, supposing no aquisition streaming"""
+        assert self.mmd == 0, "Cannot send commands in measuring mode"
+        self.sock.send(b'$'+command.encode('ascii')+b'\r')
+        answer = b''
+        while len(answer)<2 or answer[-2:] != b'\r\n':
+            self.wait_readable()
+            answer += self.sock.recv(1024)
+        #if len(answer)<2 or answer[-2:] != b'\r\n':
+         #   raise ValueError("Ill formed answer to %s: %s"%(command, answer))
+        return answer[:-2].decode('ascii')
     
     def _status(self):
-        """Fetch the status in human readable form."""
-        answer = self.inst.query('$STS')
+        """Fetch the status and parse it."""
+        answer = self.query('STS')
         m = re.match('\$STSCBL([0-9]+);ATR([0-9]+)OK', answer)
         if m is None:
             raise ValueError("Unable to parse status: %s"%answer)
@@ -152,7 +172,7 @@ class DT3100:
         """Fetch the current settings of measuring mode, data rate, 
         Values To Take (without leading zeros), target selection and 
         the content of the text field."""
-        answer = self.inst.query('$SET')
+        answer = self.query('SET')
         m = re.match(
             '\$SETMMD([0-9]+);SRA([0-9]+);AVT([0-9]+);AVN([0-9]+);VTT([0-9]{1,4});TAR([0-9]+);ETF(.*)OK',
             answer
@@ -227,17 +247,17 @@ class DT3100:
         
     def _controller_info(self):
         """Reading the index of controller."""
-        answer = self.inst.query('$IND')
+        answer = self.query('IND')
         self.controller = ControllerInfo(answer)
         
     def _sensor_info(self):
         """Reading the index of sensor."""
-        answer = self.inst.query('$SEN')
+        answer = self.query('SEN')
         self.sensor = SensorInfo(answer)
     
     def _read_potentiometer(self):
         """Readout the potentiometer positions in the order: DA_Null, DA_Gain and DA_Lin"""
-        answer = self.inst.query('$RPT')
+        answer = self.query('RPT')
         m = re.match(
             '\$RPT([0-9]+);([0-9]+);([0-9]+)OK',
             answer
@@ -323,19 +343,16 @@ class DT3100:
         return self.decode(buff)[0]
     
     
-    def end_acquisition(self, maxsize=1024):
+    def end_acquisition(self, maxsize=4096):
         """Stop acquisition and returns all bytes read until the stop command is taken into account by the instrument. To avoid memory overload, only the last `maxsize` bytes are returned."""
         #set measuring mode to 0 (no acquisition)
-        self.inst.write('$MMD0')
+        self.sock.send(b'$MMD0\r')
         self.mmd = 0
-        #flush the buffer from binary data
-        ret = self._buffer
-        while ret[-9:] != b'$MMD0OK\r\n':
-            try:
-                ret += self.inst.read_raw()
-            except visa.VisaIOError:
-                return ret
-            ret = ret[:-maxsize]
+        ret = b''
+        ok = True
+        while ok:
+            ret = (ret + self.sock.recv(maxsize))[-maxsize:]
+            ok = self.wait_readable()
         return ret[:-9]
     
     def set_averaging_type(self, avt):
@@ -346,7 +363,7 @@ class DT3100:
         3 median"""
         if avt not in (0,1,2,3):
             raise ValueError("Averaging type %s is not recognised"%avt)
-        answer = self.inst.query('$AVT%d'%avt)
+        answer = self.query('AVT%d'%avt)
         if answer != '$AVT%dOK'%avt:
             raise ValueError("Unable to parse instrument answer: %s"%answer)
         self.avt = avt
@@ -359,7 +376,7 @@ class DT3100:
         3 for moving and recursive average = 32; for Median = 9"""
         if avn not in (0,1,2,3):
             raise ValueError("Averaging number %s is not recognised"%avn)
-        answer = self.inst.query('$AVN%d'%avn)
+        answer = self.query('AVN%d'%avn)
         if answer != '$AVN%dOK'%avn:
             raise ValueError("Unable to parse instrument answer: %s"%answer)
         self.avn = avn
