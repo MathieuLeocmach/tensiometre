@@ -129,9 +129,9 @@ class DT3100:
         self.end_acquisition()
         self.sock.close()
         
-    def wait_readable(self):
+    def wait_readable(self, timeout=1):
         """wait for the interface to be readable"""
-        r, w, x = select.select([self.sock], [], [], 1)
+        r, w, x = select.select([self.sock], [], [], timeout)
         return self.sock in r
         
     def query(self, command):
@@ -297,6 +297,34 @@ class DT3100:
             count=len(buffer)//3
         ))
     
+    def read_duration(self, stream, duration=Q_(1., 's'), chunk=4096):
+        """Read measurements at least for a given time duration to a stream."""
+        try:
+            T = duration.to('s').m
+            nacq = duration / self.unit_time()
+        except AttributeError:
+            #Input duration is not a pint object. Supposed to be in seconds
+            T = duration
+            nacq = duration / self.unit_time().m
+        t0 = time.time()
+        self.sock.send(b'$MMD1\r')
+        ret = b''
+        while len(ret)<9 and self.wait_readable():
+            ret += self.sock.recv(chunk)
+        assert ret[:9] == b'$MMD1OK\r\n', "%s instead of $MMD1OK\r\n" % ret[:9]
+        ret = ret[9:]
+        while time.time() < t0 + T and self.wait_readable():
+            ret += self.sock.recv(chunk)
+            iM = 3*(len(ret)//3)
+            values = self.decode(ret[:iM])
+            values.m.tofile(stream)
+            ret = ret[iM:]
+        ret += self.end_acquisition(chunk)
+        iM = 3*(len(ret)//3)
+        values = self.decode(ret[:iM])
+        values.m.tofile(stream)
+        
+    
     def start_aquisition(self):
         """Set the instrument to continuous acquisition mode."""
         answer = self.inst.query('$MMD1')
@@ -318,32 +346,20 @@ class DT3100:
         return self.decode(buffer)
         
     def readOne(self, timeout=1):
-        """Read the instantaneous distance, bypassing all buffers. Implemented for pyVISA-py only."""
-        #ensures no data is being streamed continuously
-        if self.mmd != 0:
-            self.end_aquisition()
-        #fetch the socket interface from the depth of pyVISA-py
-        lib = self.inst.visalib
-        session = self.inst.session
-        interface = lib.sessions[session].interface
+        """Read the instantaneous distance."""
         #ask for a single distance
-        answer = self.inst.query('$GMD')
+        answer = self.query('GMD')
         if answer != '$GMDOK':
             raise ValueError("Unable to parse instrument answer: %s"%answer)
-        #wait for the interface to be readable
-        r, w, x = select.select([interface], [], [], timeout)
-        if interface not in r:
-            raise IOError("Timeout %ss after $GMD"%timeout)
-        #read 3 bytes directly from the interface, bypassing all pyVISA-py buffers
-        buff = bytearray()
-        while len(buff)<3:
-            ret = interface.recv(3)
-            buff.extend(ret)
+        if not self.wait_readable(timeout):
+            raise IOError("Timeout after $GMD"%timeout)
+        #read 3 bytes
+        ret = self.sock.recv(3)
         #convert to a distance
-        return self.decode(buff)[0]
+        return self.decode(ret)[0]
     
     
-    def end_acquisition(self, maxsize=4096):
+    def end_acquisition(self, chunk=4096, maxsize=None):
         """Stop acquisition and returns all bytes read until the stop command is taken into account by the instrument. To avoid memory overload, only the last `maxsize` bytes are returned."""
         #set measuring mode to 0 (no acquisition)
         self.sock.send(b'$MMD0\r')
@@ -351,7 +367,9 @@ class DT3100:
         ret = b''
         ok = True
         while ok:
-            ret = (ret + self.sock.recv(maxsize))[-maxsize:]
+            ret = (ret + self.sock.recv(chunk))
+            if maxsize is not None:
+                ret = ret[-maxsize:]
             ok = self.wait_readable()
         return ret[:-9]
     
