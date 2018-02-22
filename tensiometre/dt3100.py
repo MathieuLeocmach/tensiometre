@@ -1,7 +1,7 @@
-import re, struct, select
+import re, struct, select, socket, time
 from threading import Thread
 import numpy as np
-import visa
+#import visa
 #Let us have a context manager, not to forget to close instruments
 from contextlib import closing
 
@@ -29,16 +29,16 @@ def get_resource_manager():
     
 def recover(ip='169.254.3.100'):
     """Recover the basic state of the instrument with low-level commands"""
-    with closing(get_resource_manager().open_resource(
-        'TCPIP::%s::10001::SOCKET'%ip
-    )) as inst:
-        inst.write_termination = '\r'
-        inst.read_termination = '\r\n'
-        inst.timeout = 2000
-        lib = inst.visalib
-        session = inst.session
-        s = lib.sessions[session].interface
-        print(inst.query('$MMD0'))
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect((ip, 10001))
+    sock.send(b'$MMD0\r')
+    time.sleep(0.04)
+    answer = sock.recv(1024*4)
+    sock.close()
+    if len(answer)<9 or answer[-9:] != b'$MMD0OK\r\n':
+        print("%s not ready"%ip)
+    else:
+        print("%s ready"%ip)
 
 class ControllerInfo:
     """Controller information"""
