@@ -49,22 +49,24 @@ def log_sampled(repeat = 10):
             sensor.set_averaging_number(3)
         #remember original positions of the sensors and actuator
         x0, y0, z0 = actuator.update_current_position()[1:]
-        initial = np.zeros(2)
-        for j in range(repeat):
-            initial += read_both(sensorA, sensorB)
-        initial /= repeat
-        #move along x
-        for i in range(len(measures)):
-            actuator.move_to(x0+2**i, y0, z0)
+        try:
+            initial = np.zeros(2)
             for j in range(repeat):
-                measures[i,:2] += np.array(read_both(sensorA, sensorB))
-        actuator.move_to(x0, y0, z0)
-        #move along z
-        for i in range(len(measures)):
-            actuator.move_to(x0, y0, z0+2**i)
-            for j in range(repeat):
-                measures[i,2:] += np.array(read_both(sensorA, sensorB))
-        actuator.move_to(x0, y0, z0)
+                initial += read_both(sensorA, sensorB)
+            initial /= repeat
+            #move along x
+            for i in range(len(measures)):
+                actuator.move_to(x0+2**i, y0, z0)
+                for j in range(repeat):
+                    measures[i,:2] += np.array(read_both(sensorA, sensorB))
+            actuator.move_to(x0, y0, z0)
+            #move along z
+            for i in range(len(measures)):
+                actuator.move_to(x0, y0, z0+2**i)
+                for j in range(repeat):
+                    measures[i,2:] += np.array(read_both(sensorA, sensorB))
+        finally:
+            actuator.move_to(x0, y0, z0)
     measures /= repeat
     measures[:,:2] -= initial
     measures[:,2:] -= initial
