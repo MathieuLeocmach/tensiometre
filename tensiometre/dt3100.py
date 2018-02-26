@@ -417,6 +417,8 @@ class ReadOne(Thread):
     
     def run(self):
         self.value = self.sensor.readOne()
+        if self.value is None:
+            raise ValueError("Sensor on %s returned None value"%self.sensor.IPAddress)
         
 def read_both(sensorA, sensorB):
     """Read both sensors asynchronously"""
@@ -428,3 +430,13 @@ def read_both(sensorA, sensorB):
     readerA.join()
     readerB.join()
     return readerA.value.m, readerB.value.m
+
+class ReadDuration(Thread):
+    """Read asynchronously a sensor to a stream during a fixed amount of time."""
+    def __init__(self, sensor, stream, duration):
+        Thread.__init__(self)
+        self.sensor = sensor
+        self.stream = stream
+        self.duration = duration
+    def run(self):
+        self.sensor.read_duration(self.stream, self.duration)
