@@ -354,7 +354,9 @@ class DT3100:
         if not self.wait_readable(timeout):
             raise IOError("Timeout after $GMD"%timeout)
         #read 3 bytes
-        ret = self.sock.recv(3)
+        ret = b''
+        while len(ret)<3 and self.wait_readable(timeout):
+            ret += self.sock.recv(3)
         #convert to a distance
         return self.decode(ret)[0]
     
