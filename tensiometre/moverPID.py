@@ -56,7 +56,7 @@ class MoverPID_XZ(Thread):
         """AB2XZ is the transfer matrix between sensor coordinates and actuator coordinates."""
         Thread.__init__(self)
         self.sensors = sensors
-        self.mpc = mpcDT3100
+        self.mpc = mpc
         self.AB2XZ = AB2XZ
         self.pids = pids
         if outputFile:
@@ -102,6 +102,56 @@ class MoverPID_XZ(Thread):
         self.recorder.go = False
         self.recorder.join()
 
+class constant_position_XZ(Thread):
+    """Thread in charge of controlling the X and Z position of the tensiometer so that the head stays at the same absolute position."""
+    def __init__(self, sensors, actuator, AB2XZ, pids=[PID(), PID()], outputFile=False):
+        """AB2XZ is the transfer matrix between sensor coordinates and actuator coordinates."""
+        Thread.__init__(self)
+        self.sensors = sensors
+        self.actuator = actuator
+        self.AB2XZ = AB2XZ
+        self.pids = pids
+        if outputFile:
+            self.recorder = Recorder(outputFile)
+        else:
+            self.recorder = False
+        self.go = True
+
+    def run(self):
+        self.recorder.start()
+        t0 = time.time()
+        while self.go:
+            #ask asynchronously for a position measurement for each sensor
+            readers = [ReadOne(sensor) for sensor in self.sensors]
+            for reader in readers:
+                reader.start()
+            #in parallel, ask for the current position of the micromanipulator
+            x,y,z = self.actuator.update_current_position()[-3:]
+            #wait for the position measurements
+            for reader in readers:
+                reader.join()
+            #translate sensor coordinates into micromanipulator coordinates
+            measureXZ = np.matmul(self.AB2XZ, [reader.value.m for reader in readers])
+            #feed state to PIDs, in units of steps
+            outputs = []
+            for measure, pid in zip([x,z] - self.actuator.um2step(measureXZ), self.pids):
+                pid.update(measure)
+                outputs.append(pid.output)
+            outputs = np.array(outputs)
+            #save state to file asynchronously
+            if self.recorder:
+                self.recorder.queue.append([pid.current_time-t0, x, z, *self.actuator.um2step(measureXZ)])
+            #the new position of the micromanipulator in steps
+            newxz = outputs.astype(int) + [x,z]
+            newxz = np.minimum(400000, np.maximum(0, newxz))
+            #update micromanipulator position
+            if newxz[1] != z or newxz[0] != x:
+                self.actuator.move_to(newxz[0], y, newxz[1])
+        #wait for recorder completion
+        while len(self.recorder.queue)>0:
+            time.sleep(0.01)
+        self.recorder.go = False
+        self.recorder.join()
 
 class Recorder(Thread):
     """Thread in charge of recording the data to a file."""
