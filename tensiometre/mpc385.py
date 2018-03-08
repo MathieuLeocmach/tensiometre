@@ -123,6 +123,14 @@ class MPC385:
         assert speed in range(1,17)
         for pos in [x,y,z]:
             self.check_in_range(pos)
+        #save current timeout
+        timeout = self.port.timeout
+        #compute how long it should take
+        vmin = 360
+        dist = self.step2um(np.max(np.abs(self.positions[0] - [x,y,z])))
+        tmax = dist / vmin + 1
+        #set longer timeout
+        self.port.timeout = tmax
         #disable output
         self.query(b'F', '')
         #send command
@@ -131,6 +139,8 @@ class MPC385:
         time.sleep(0.024)
         #send coordinates to move to
         self.query(struct.pack('=iii', int(x),int(y),int(z)), '')
+        #restore timout
+        self.port.timeout = timeout
     
     def move_to(self, x,y,z):
         """Fast, stereotypic movement with firmware controlled velocity. Final position in microsteps."""
