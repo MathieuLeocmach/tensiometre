@@ -1,5 +1,5 @@
 from contextlib import closing
-import struct, time
+import struct, time, select
 import numpy as np
 import serial
 
@@ -33,15 +33,30 @@ class MPC385:
         try:
             self.update_positions()
         except AssertionError as e:
+            self.port.close()
             raise ConnectionError("Unable to initialize micromanipulator state. Please unplug, turn off, wait, turn on, plug back.")
         
     def close(self):
         self.port.close()
         
+    def wait_readable(self, timeout=1):
+        """wait for the interface to be readable"""
+        r, w, x = select.select([self.port], [], [], timeout)
+        if self.port not in r:
+            raise ConnectionError('Port not readable')
+    
+    def wait_writeable(self, timeout=1):
+        """wait for the interface to be writeable"""
+        r, w, x = select.select([], [self.port], [], timeout)
+        if self.port not in w:
+            raise ConnectionError('Port not writeable')
+        
     def query(self, command, pattern=''):
         """Write a command and parse the answer using struct syntax, stripped of final CR byte"""
+        self.wait_writeable()   
         self.port.write(command)
         s = struct.Struct(pattern)
+        self.wait_readable()
         answer = self.port.read(s.size+1)
         assert len(answer) == s.size + 1, 'Answer too short (%d instead of %d), probably a timeout'%(len(answer), s.size + 1)
         assert answer[-1:] == b'\r', '%s does not end by \\r (command was %s)'%(answer, command)
