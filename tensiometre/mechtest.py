@@ -1,10 +1,13 @@
+import time
 import numpy as np
 from contextlib import closing
 from tensiometre.dt3100 import DT3100, ReadOne, recover, read_both, ReadDuration
 from tensiometre.mpc385 import MPC385
+from tensiometre.pid import PID
+from tensiometre import moverPID
 
-def move_to_constant_position(outname, ab2xz, kp=0.9, dz =-100, dx=0, moveback=False):
-    """Moving the absolute position of the head by dz and dx and stay at that position using PID feedback. Need ab2xz calibration matrix."""
+def move_to_constant_position(outname, ab2xz, kp=0.9, dz =-100, dx=0, duration=None, moveback=False):
+    """Moving the absolute position of the head by dz and dx and stay at that position using PID feedback. Need ab2xz calibration matrix. Duration is in seconds. If None specified, continues until stopped."""
     with closing(DT3100('169.254.3.100')) as sensorA, closing(DT3100('169.254.4.100')) as sensorB, closing(MPC385()) as actuator:
         sensors = [sensorA, sensorB]
         #setting up sensors
@@ -23,9 +26,10 @@ def move_to_constant_position(outname, ab2xz, kp=0.9, dz =-100, dx=0, moveback=F
         try:
             with open(outname, "wb") as fout:
                 m = moverPID.constant_position_XZ(sensors, actuator, ab2xz, pids, outputFile=fout)
+                t0 = time.time()
                 m.start()
                 try:
-                    while True:
+                    while (duration is None) or (time.time() < t0 + duration):
                         time.sleep(1)
                 except KeyboardInterrupt:
                     pass
@@ -37,9 +41,9 @@ def move_to_constant_position(outname, ab2xz, kp=0.9, dz =-100, dx=0, moveback=F
                 #move the actuator back to its original position
                 actuator.move_to(x0, y0, z0)
                 
-def stay_constant_position(outname, ab2xz, kp=0.9, moveback=False):
+def stay_constant_position(outname, ab2xz, kp=0.9, duration=None, moveback=False):
     """Keep the absolute position of the head constant using PID feedback. Need ab2xz calibration matrix."""
-    move_to_constant_position(outname, ab2xz, kp, dz=0, dx=0, moveback=False)
+    move_to_constant_position(outname, ab2xz, kp, dz=0, dx=0, duration=duration, moveback=False)
 
 
 def traction(dz = -3000, velocity=2, duration = 1., avt=3, avn=3, outputname=None):
