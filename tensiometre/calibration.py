@@ -20,13 +20,13 @@ def two_points(dx=100, dz=100, nsamples=1):
         assert ab0.min()>0 and ab0.max()<800
         x0,y0,z0 = mpc.update_current_position()[1:]
         #move along x
-        mpc.move_to(x0+mpc.um2step(dx),y0,z0)
+        mpc.move_to(x0+mpc.um2integer_step(dx),y0,z0)
         abx = np.mean([
             [sensor.readOne().m for sensor in sensors] 
             for i in range(nsamples)], 0)
         assert abx.min()>0 and abx.max()<800
         #move along z
-        mpc.move_to(x0,y0,z0+mpc.um2step(dz))
+        mpc.move_to(x0,y0,z0+mpc.um2integer_step(dz))
         abz = np.mean([
             [sensor.readOne().m for sensor in sensors] 
             for i in range(nsamples)], 0)

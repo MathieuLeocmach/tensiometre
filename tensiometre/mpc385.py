@@ -51,12 +51,12 @@ class MPC385:
         if self.port not in w:
             raise ConnectionError('Port not writeable')
         
-    def query(self, command, pattern=''):
+    def query(self, command, pattern='', timeout=1):
         """Write a command and parse the answer using struct syntax, stripped of final CR byte"""
-        self.wait_writeable()   
+        self.wait_writeable(timeout)   
         self.port.write(command)
         s = struct.Struct(pattern)
-        self.wait_readable()
+        self.wait_readable(timeout)
         answer = self.port.read(s.size+1)
         assert len(answer) == s.size + 1, 'Answer too short (%d instead of %d), probably a timeout'%(len(answer), s.size + 1)
         assert answer[-1:] == b'\r', '%s does not end by \\r (command was %s)'%(answer, command)
@@ -115,10 +115,14 @@ class MPC385:
         return pos * _STEP
     
     def um2step(self, pos):
-        """Convert a position or an array of positions in microns to microsteps"""
+        """Convert a position or an array of positions in microns to microsteps (float values)"""
+        return pos * _ISTEP
+        
+    def um2integer_step(self, pos):
+        """Convert a position or an array of positions in microns to integer microsteps"""
         if np.isscalar(pos):
-            return int(pos * _ISTEP)
-        return (pos * _ISTEP).astype(int)
+            return int(self.um2step(pos))
+        return self.um2step(pos).astype(int)
     
     def get_position(self, m=None):
         """Get the current position in microns. Either for all manipulators (default) or one"""
@@ -147,7 +151,7 @@ class MPC385:
         #set longer timeout
         self.port.timeout = tmax
         #disable output
-        self.query(b'F', '')
+        self.query(b'F', '', timeout=tmax)
         #send command
         self.port.write(struct.pack('=cB', b'S', speed-1))
         #wait 24ms
@@ -161,4 +165,4 @@ class MPC385:
         """Fast, stereotypic movement with firmware controlled velocity. Final position in microsteps."""
         for pos in [x,y,z]:
             self.check_in_range(pos)
-        self.query(struct.pack('=ciii', b'M', int(x),int(y),int(z)))
+        self.query(struct.pack('=ciii', b'M', int(x),int(y),int(z)), timeout=10.)
