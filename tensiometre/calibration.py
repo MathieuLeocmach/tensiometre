@@ -61,7 +61,9 @@ def sampled_single_direction(direction='x', samples=None, repeat = 10):
                 if direction == "x":
                     actuator.move_to(x0 + sample, y0, z0)
                 elif direction == "z":
-                    actuator.move_to(x0, y0, z0 + sample)
+                    #manipulator going down by sample
+                    #head going up by sample since blocked
+                    actuator.move_to(x0, y0, z0 + sample) 
                 else:
                     raise ValueError('direction should be x or z')
                 for j in range(repeat):
@@ -75,7 +77,7 @@ def sampled_single_direction(direction='x', samples=None, repeat = 10):
     measures -= initial
     #fit the results to get coefficients
     func = lambda x,p: p * x
-    dxs = actuator.step2um(samples)
+    dxs = -actuator.step2um(samples)
     fig, axs = plt.subplots(1,2, sharex=True)
     x2ab = []
     for ax,m in zip(axs.ravel(), (measures).T):
@@ -89,7 +91,7 @@ def sampled_single_direction(direction='x', samples=None, repeat = 10):
     return np.array(x2ab), fig
 
 def sampled(samples=None, repeat = 10):
-    """To calibrate, mechanically block the head of the cantilever from the left, then from the bottom. By default, test 11 dispacements in each direction, sampled in lag scale.
+    """To calibrate, mechanically block the head of the cantilever from the right (looking to the micromanipulator), then from the bottom. By default, test 11 dispacements in each direction, sampled in lag scale.
     The resulting matrix allows to convert sensor measurements into micromanipulator coordinates."""
     input("Please block X direction")
     x2ab = sampled_single_direction('x', samples, repeat)[0]

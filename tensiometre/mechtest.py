@@ -19,7 +19,7 @@ def move_to_constant_position(outname, ab2xz, kp=0.9, dz =-100, dx=0, duration=N
         x0,y0,z0 = actuator.update_current_position()[1:]
         #setting up PID
         pids = []
-        for s in [x0, z0] - actuator.um2step(np.array([X0+dx, Z0+dz])):
+        for s in [x0, z0] + actuator.um2step(np.array([X0+dx, Z0+dz])):
             pid = PID(kp, 0, 0)
             pid.setPoint = s
             pids.append(pid)

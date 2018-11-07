@@ -6,6 +6,21 @@ from tensiometre.dt3100 import DT3100, ReadOne
 from tensiometre.mpc385 import MPC385
 from tensiometre.pid import PID
 
+def current_positions(ab2xz, sensors, actuator):
+    """Ask both sensors and actuator its current position."""
+    #ask asynchronously for a position measurement for each sensor
+    readers = [ReadOne(sensor) for sensor in self.sensors]
+    for reader in readers:
+        reader.start()
+    #in parallel, ask for the current position of the micromanipulator
+    x,y,z = actuator.update_current_position()[-3:]
+    #wait for the position measurements
+    for reader in readers:
+        reader.join()
+    #translate sensor coordinates into micromanipulator coordinates
+    measureXZ = np.matmul(ab2xz, [reader.value.m for reader in readers])
+    return (x,y,z), measureXZ
+
 
 class MoverPID_Z(Thread):
     """Thread in charge of controlling the Z position of the tensiometer so that the target stays at a given distance from the sensor."""
@@ -50,13 +65,13 @@ class MoverPID_Z(Thread):
         self.recorder.join()
 
 
-class MoverPID_XZ(Thread):
-    """Thread in charge of controlling the X and Z position of the tensiometer so that the target stays at a given distances from the sensors."""
-    def __init__(self, sensors, mpc, AB2XZ, pids=[PID(), PID()], outputFile=False):
+class constant_deflection_XZ(Thread):
+    """Thread in charge of controlling the x and z position of the micromanipulator so that the target stays at a given distances from the sensors."""
+    def __init__(self, sensors, actuator, AB2XZ, pids=[PID(), PID()], outputFile=False):
         """AB2XZ is the transfer matrix between sensor coordinates and actuator coordinates."""
         Thread.__init__(self)
         self.sensors = sensors
-        self.mpc = mpc
+        self.actuator = actuator
         self.AB2XZ = AB2XZ
         self.pids = pids
         if outputFile:
@@ -69,20 +84,11 @@ class MoverPID_XZ(Thread):
         self.recorder.start()
         t0 = time.time()
         while self.go:
-            #ask asynchronously for a position measurement for each sensor
-            readers = [ReadOne(sensor) for sensor in self.sensors]
-            for reader in readers:
-                reader.start()
-            #in parallel, ask for the current position of the micromanipulator
-            x,y,z = self.mpc.update_current_position()[-3:]
-            #wait for the position measurements
-            for reader in readers:
-                reader.join()
-            #translate sensor coordinates into micromanipulator coordinates
-            measureXZ = np.matmul(self.AB2XZ, [reader.value.m for reader in readers])
+            (x,y,z), measureXZ = current_positions(self.AB2XZ, self.sensors, self.actuator)
             #feed to PIDs
             outputs = []
             for measure, pid in zip(measureXZ, self.pids):
+                #PID works in microns
                 pid.update(measure)
                 outputs.append(pid.output)
             outputs = np.array(outputs)
@@ -91,11 +97,11 @@ class MoverPID_XZ(Thread):
                 self.recorder.queue.append([pid.current_time-t0, *measureXZ,  *outputs])
             #translate PID output in microns into 
             #the new position of the micromanipulator in steps
-            newxz = (np.array([x,z]) + self.mpc.um2step(outputs)).astype(int)
+            newxz = (np.array([x,z]) - self.actuator.um2integer_step(outputs)).astype(int)
             newxz = np.minimum(200000, np.maximum(0, newxz))
             #update micromanipulator position
             if newxz[1] != z or newxz[0] != x:
-                self.mpc.move_to(newxz[0], y, newxz[1])
+                self.actuator.move_to(newxz[0], y, newxz[1])
         #wait for recorder completion
         while len(self.recorder.queue)>0:
             time.sleep(0.01)
@@ -121,20 +127,11 @@ class constant_position_XZ(Thread):
         self.recorder.start()
         t0 = time.time()
         while self.go:
-            #ask asynchronously for a position measurement for each sensor
-            readers = [ReadOne(sensor) for sensor in self.sensors]
-            for reader in readers:
-                reader.start()
-            #in parallel, ask for the current position of the micromanipulator
-            x,y,z = self.actuator.update_current_position()[-3:]
-            #wait for the position measurements
-            for reader in readers:
-                reader.join()
-            #translate sensor coordinates into micromanipulator coordinates
-            measureXZ = np.matmul(self.AB2XZ, [reader.value.m for reader in readers])
+            (x,y,z), measureXZ = current_positions(self.AB2XZ, self.sensors, self.actuator)
             #feed state to PIDs, in units of steps
             outputs = []
-            for measure, pid in zip([x,z] - self.actuator.um2step(measureXZ), self.pids):
+            for measure, pid in zip([x,z] + self.actuator.um2step(measureXZ), self.pids):
+                #PID works in steps
                 pid.update(measure)
                 outputs.append(pid.output)
             outputs = np.array(outputs)
