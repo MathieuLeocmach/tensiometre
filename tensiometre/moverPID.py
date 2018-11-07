@@ -9,7 +9,7 @@ from tensiometre.pid import PID
 def current_positions(ab2xz, sensors, actuator):
     """Ask both sensors and actuator its current position."""
     #ask asynchronously for a position measurement for each sensor
-    readers = [ReadOne(sensor) for sensor in self.sensors]
+    readers = [ReadOne(sensor) for sensor in sensors]
     for reader in readers:
         reader.start()
     #in parallel, ask for the current position of the micromanipulator
