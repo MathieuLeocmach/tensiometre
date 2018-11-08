@@ -131,9 +131,14 @@ def find_wall(direction='z', repeat = 10, precision=1, verbose=False):
             #try to expand upper bound
             moved = False
             while not moved:
-                if verbose: 
-                    print("Looking between %d and %d"%(z0+lbound, z0+ubound))
-                actuator.move_to(x0, y0, z0+ubound)
+                if direction == "x":
+                    if verbose: 
+                        print("Looking between %d and %d"%(x0+lbound, x0+ubound))
+                    actuator.move_to(x0+ubound, y0, z0)
+                elif direction == "z":
+                    if verbose: 
+                        print("Looking between %d and %d"%(z0+lbound, z0+ubound))
+                    actuator.move_to(x0, y0, z0+ubound)
                 moved = have_moved(initial, sensors, repeat, precision)
                 if not moved:
                     lbound = ubound
@@ -141,16 +146,25 @@ def find_wall(direction='z', repeat = 10, precision=1, verbose=False):
             #move back to lower bound
             actuator.move_to(x0, y0, z0+lbound)
             while ubound - lbound > actuator.um2integer_step(precision):
-                if verbose:
-                    print("Looking between %d and %d"%(z0+lbound, z0+ubound))
                 midrange = (ubound+lbound)//2
-                actuator.move_to(x0, y0, z0+midrange)
+                if direction == "x":
+                    if verbose: 
+                        print("Looking between %d and %d"%(x0+lbound, x0+ubound))
+                    actuator.move_to(x0+midrange, y0, z0)
+                elif direction == "z":
+                    if verbose: 
+                        print("Looking between %d and %d"%(z0+lbound, z0+ubound))
+                    actuator.move_to(x0, y0, z0+midrange)
                 moved = have_moved(initial, sensors, repeat, precision)
                 if moved:
                     ubound = midrange
                 else:
                     lbound = midrange
-            touching = z0 + (ubound+lbound)//2
+            touching = (ubound+lbound)//2
+            if direction == "x":
+                touching += x0
+            elif direction == "z":
+                touching += z0
             print("touching at %d"%touching)
         finally:
             print("Backing up to original position")
