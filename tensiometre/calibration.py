@@ -99,8 +99,64 @@ def sampled(samples=None, repeat = 10):
     z2ab = sampled_single_direction('z', samples, repeat)[0]
     return np.linalg.inv(np.column_stack((x2ab, z2ab)))
     
-
-
+def find_wall(direction='z', repeat = 10, precision=1, verbose=False):
+    """Find the position at which the head encounters a wall"""
+    with closing(DT3100('169.254.3.100')) as sensorA, closing(DT3100('169.254.4.100')) as sensorB, closing(MPC385()) as actuator:
+        sensors = [sensorA, sensorB]
+        for sensor in sensors:
+            sensor.set_averaging_type(3)
+            sensor.set_averaging_number(3)
+        #remember original positions of the sensors and actuator
+        x0, y0, z0 = actuator.update_current_position()[1:]
+        try:
+            initial = np.zeros(2)
+            for j in range(repeat):
+                initial += read_both(*sensors)
+            initial /= repeat
+            #estimate the maximum range
+            lbound = 0
+            ubound = actuator.um2integer_step(initial.min())//2
+            #if sensors in the middle of their range, should be 200um
+            #try to expand upper bound
+            moved = False
+            while not moved:
+                if verbose: 
+                    print("Looking between %d and %d"%(z0+lbound, z0+ubound))
+                actuator.move_to(x0, y0, z0+ubound)
+                #measure head position
+                ab = np.zeros(2)
+                for j in range(repeat):
+                    ab += read_both(*sensors)
+                ab /= repeat
+                #have we moved ?
+                moved = np.abs(ab - initial).max() > precision
+                if not moved:
+                    lbound = ubound
+                    ubound += actuator.um2integer_step(initial.min())//2
+            #move back to lower bound
+            actuator.move_to(x0, y0, z0+lbound)
+            while ubound - lbound > actuator.um2integer_step(precision):
+                if verbose:
+                    print("Looking between %d and %d"%(z0+lbound, z0+ubound))
+                midrange = (ubound+lbound)//2
+                actuator.move_to(x0, y0, z0+midrange)
+                #measure head position
+                ab = np.zeros(2)
+                for j in range(repeat):
+                    ab += read_both(*sensors)
+                ab /= repeat
+                #have we moved ?
+                moved = np.abs(ab - initial).max() > precision
+                if moved:
+                    ubound = midrange
+                else:
+                    lbound = midrange
+            touching = z0 + (ubound+lbound)//2
+            print("touching at %d"%touching)
+        finally:
+            print("Backing up to original position")
+            actuator.move_to(x0, y0, z0)
+    return touching
    
 
 
