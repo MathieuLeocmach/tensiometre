@@ -1,4 +1,5 @@
 from contextlib import closing
+import time
 import numpy as np
 from scipy.optimize import curve_fit
 from tensiometre.dt3100 import DT3100, ReadOne, read_both
@@ -94,14 +95,38 @@ def sampled(samples=None, repeat = 10):
     """To calibrate, mechanically block the head of the cantilever from the right (looking to the micromanipulator), then from the bottom. By default, test 11 dispacements in each direction, sampled in lag scale.
     The resulting matrix allows to convert sensor measurements into micromanipulator coordinates."""
     input("Please block X direction")
-    x2ab = sampled_single_direction('x', samples, repeat)[0]
+    x2ab = sampled_single_direction('x', samples, repeat)[0]   
     input("Please block Z direction")
     z2ab = sampled_single_direction('z', samples, repeat)[0]
     return np.linalg.inv(np.column_stack((x2ab, z2ab)))
     
+def sampled_auto(samples=None, repeat = 10):
+    """To calibrate, mechanically block the head of the cantilever from the right (looking to the micromanipulator), then from the bottom. By default, test 11 dispacements in each direction, sampled in lag scale.
+    note: For the borrowed micromanipulator, block from lrft when looking at head from front
+    The resulting matrix allows to convert sensor measurements into micromanipulator coordinates."""
+    with closing(MPC385()) as actuator:
+        x0, y0, z0 = actuator.update_current_position()[1:]
+    x = find_wall('x',precision=1, verbose=True, settle_time=1, backup=False)
+    time.sleep(1)
+    x2ab = sampled_single_direction('x', samples, repeat)[0]
+    time.sleep(1)
+    with closing(MPC385()) as actuator:
+        actuator.move_to(x0, y0, z0)
+    z = find_wall('z',precision=1, verbose=True, settle_time=1, backup=False)
+    #with closing(MPC385()) as actuator:
+        #actuator.move_to(x0, y0, z0+z+100*16)
+    time.sleep(1)
+    z2ab = sampled_single_direction('z', samples, repeat)[0]
+    time.sleep(1)
+    with closing(MPC385()) as actuator:
+        actuator.move_to(x0, y0, z0)
+    return np.linalg.inv(np.column_stack((x2ab, z2ab)))
     
-def have_moved(initial, sensors, repeat=10, precision=1):
+    
+def have_moved(initial, sensors, repeat=10, precision=1, settle_time=None):
     """Have the sensor readings changed with respect to initial"""
+    if settle_time is not None:
+        time.sleep(settle_time)
     #measure head position
     ab = np.zeros(2)
     for j in range(repeat):
@@ -109,8 +134,8 @@ def have_moved(initial, sensors, repeat=10, precision=1):
     ab /= repeat
     #have we moved ?
     return np.abs(ab - initial).max() > precision
-    
-def find_wall(direction='z', repeat = 10, precision=1, verbose=False):
+   
+def find_wall(direction='z', repeat = 10, precision=1, verbose=False, backup=True, settle_time=None, k=100*16):
     """Find the position at which the head encounters a wall"""
     with closing(DT3100('169.254.3.100')) as sensorA, closing(DT3100('169.254.4.100')) as sensorB, closing(MPC385()) as actuator:
         sensors = [sensorA, sensorB]
@@ -139,12 +164,18 @@ def find_wall(direction='z', repeat = 10, precision=1, verbose=False):
                     if verbose: 
                         print("Looking between %d and %d"%(z0+lbound, z0+ubound))
                     actuator.move_to(x0, y0, z0+ubound)
-                moved = have_moved(initial, sensors, repeat, precision)
+                moved = have_moved(initial, sensors, repeat, precision, settle_time)
                 if not moved:
                     lbound = ubound
                     ubound += actuator.um2integer_step(initial.min())//2
             #move back to lower bound
-            actuator.move_to(x0, y0, z0+lbound)
+            if direction == "x":
+                print("excessive touching")
+                actuator.move_to(x0+lbound, y0, z0)
+            elif direction == "z":
+                print("excessive touching")
+                actuator.move_to(x0, y0, z0+lbound)   
+            #actuator.move_to(x0, y0, z0+lbound)
             while ubound - lbound > actuator.um2integer_step(precision):
                 midrange = (ubound+lbound)//2
                 if direction == "x":
@@ -155,7 +186,7 @@ def find_wall(direction='z', repeat = 10, precision=1, verbose=False):
                     if verbose: 
                         print("Looking between %d and %d"%(z0+lbound, z0+ubound))
                     actuator.move_to(x0, y0, z0+midrange)
-                moved = have_moved(initial, sensors, repeat, precision)
+                moved = have_moved(initial, sensors, repeat, precision, settle_time)
                 if moved:
                     ubound = midrange
                 else:
@@ -163,12 +194,18 @@ def find_wall(direction='z', repeat = 10, precision=1, verbose=False):
             touching = (ubound+lbound)//2
             if direction == "x":
                 touching += x0
+                actuator.move_to(touching, y0, z0)
             elif direction == "z":
                 touching += z0
-            print("touching at %d"%touching)
+                actuator.move_to(x0, y0, touching)
+                #k += touching
+                #actuator.move_to(x0, y0, k) 
+            print("touching at %d"%touching)  
+            #print("moved actuator to %d"%k)  
         finally:
-            print("Backing up to original position")
-            actuator.move_to(x0, y0, z0)
+            if backup:
+                print("Backing up to original position")
+                actuator.move_to(x0, y0, z0)
     return touching
    
 
