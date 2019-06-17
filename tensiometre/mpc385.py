@@ -20,6 +20,10 @@ class MPC385:
 
     ACTION=="add", ATTRS{idVendor}=="1342", ATTRS{idProduct}=="0001", RUN+="/sbin/modprobe ftdi_sio" RUN+="/bin/sh -c 'echo 1342 0001 > /sys/bus/usb-serial/drivers/ftdi_sio/new_id'"
     """
+    
+    _NSTEP = 400000
+    """Maximum number of steps"""
+    
     def __init__(self, serial_number='SI9L8W3A', timeout=10.0):
         #self.port = serial.Serial('/dev/ttyUSB0', baudrate=128000)
         self.port = serial.Serial(
@@ -132,7 +136,7 @@ class MPC385:
         return self.step2um(self.positions[m-1])
     
     def check_in_range(self, pos):
-        if pos<0 or pos >400000:
+        if pos<0 or pos >self._NSTEP:
             raise ValueError('position %s is not in the range [0,400000)'%pos)
     
     def move_straight(self, x, y, z, speed=16):

@@ -55,7 +55,7 @@ class MoverPID_Y(Thread):
             #translate PID output in microns into 
             #the new position of the micromanipulator in steps
             newy = y - self.mpc.um2step(self.pid.output)
-            newy = int(min(200000, max(0, newy)))
+            newy = int(min(MPC385._NSTEP, max(0, newy)))
             #update micromanipulator position
             if newy != y:
                 self.mpc.move_to(x, newy, z)
@@ -92,13 +92,14 @@ class constant_deflection_XY(Thread):
                 pid.update(measure)
                 outputs.append(pid.output)
             outputs = np.array(outputs)
-            #save state to file asynchronously
-            if self.recorder:
-                self.recorder.queue.append([pid.current_time-t0, *measureXY,  *outputs])
             #translate PID output in microns into 
             #the new position of the micromanipulator in steps
             newxy = (np.array([x,y]) - self.actuator.um2integer_step(outputs)).astype(int)
-            newxy = np.minimum(200000, np.maximum(0, newxy))
+            #save state to file asynchronously
+            if self.recorder:
+                self.recorder.queue.append([pid.current_time-t0, x,y, *measureXY,  *outputs, *newxy])
+            newxy = np.minimum(MPC385._NSTEP, np.maximum(0, newxy))
+            
             #update micromanipulator position
             if newxy[1] != y or newxy[0] != x:
                 self.actuator.move_to(newxy[0], newxy[1], z)
@@ -140,7 +141,7 @@ class constant_position_XY(Thread):
                 self.recorder.queue.append([pid.current_time-t0, x, y, *self.actuator.um2step(measureXY)])
             #the new position of the micromanipulator in steps
             newxy = outputs.astype(int) + [x,y]
-            newxy = np.minimum(400000, np.maximum(0, newxy))
+            newxy = np.minimum(MPC385._NSTEP, np.maximum(0, newxy))
             #update micromanipulator position
             if newxy[1] != y or newxy[0] != x:
                 self.actuator.move_to(newxy[0], newxy[1], z)
