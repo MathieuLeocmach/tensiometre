@@ -150,6 +150,53 @@ class constant_position_XY(Thread):
             time.sleep(0.01)
         self.recorder.go = False
         self.recorder.join()
+        
+        
+class constant_deflectionX_positionY(Thread):
+    """Thread in charge of controlling the x (width) and y (depth) position of the micromanipulator so that deflection stays constant in x (constant force) and the y position of the head stays constant with respect to the lab (constant position)."""
+    def __init__(self, sensors, actuator, AB2XY, pids=[PID(), PID()], outputFile=False):
+        """AB2XY is the transfer matrix between sensor coordinates and actuator coordinates."""
+        Thread.__init__(self)
+        self.sensors = sensors
+        self.actuator = actuator
+        self.AB2XY = AB2XY
+        self.pids = pids
+        if outputFile:
+            self.recorder = Recorder(outputFile)
+        else:
+            self.recorder = False
+        self.go = True
+
+    def run(self):
+        self.recorder.start()
+        t0 = time.time()
+        while self.go:
+            (x,y,z), measureXY = current_positions(self.AB2XY, self.sensors, self.actuator)
+            #feed to PIDs
+            outputs = []
+            #PID on X works in microns
+            pid[0].update(measureXY[0])
+            outputX = pid[0].output
+            #translate PID output in microns into 
+            #the new position of the micromanipulator in steps
+            newx = (x - self.actuator.um2integer_step(outputX)).astype(int)
+            #PID on y works in steps
+            pid[1].update(y + self.actuator.um2step(measureXY[1]))
+            outputy = pid[1].output
+            newy = outputy.astype(int) + y
+            #save state to file asynchronously
+            if self.recorder:
+                self.recorder.queue.append([pid.current_time-t0, x, y, *self.actuator.um2step(measureXY)])
+            newxy = np.minimum(MPC385._NSTEP, np.maximum(0, [newx, newy]))
+            
+            #update micromanipulator position
+            if newxy[1] != y or newxy[0] != x:
+                self.actuator.move_to(newxy[0], newxy[1], z)
+        #wait for recorder completion
+        while len(self.recorder.queue)>0:
+            time.sleep(0.01)
+        self.recorder.go = False
+        self.recorder.join()
 
 class Recorder(Thread):
     """Thread in charge of recording the data to a file."""
