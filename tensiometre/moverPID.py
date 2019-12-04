@@ -97,7 +97,7 @@ class constant_deflection_XY(Thread):
             newxy = (np.array([x,y]) - self.actuator.um2integer_step(outputs)).astype(int)
             #save state to file asynchronously
             if self.recorder:
-                self.recorder.queue.append([pid.current_time-t0, x,y, *measureXY,  *outputs, *newxy])
+                self.recorder.queue.append([pid.current_time-t0, x,y, *self.actuator.um2step(measureXY)])
             newxy = np.minimum(MPC385._NSTEP, np.maximum(0, newxy))
             
             #update micromanipulator position
@@ -175,18 +175,18 @@ class constant_deflectionX_positionY(Thread):
             #feed to PIDs
             outputs = []
             #PID on X works in microns
-            pid[0].update(measureXY[0])
-            outputX = pid[0].output
+            self.pids[0].update(measureXY[0])
+            outputX = self.pids[0].output
             #translate PID output in microns into 
             #the new position of the micromanipulator in steps
             newx = (x - self.actuator.um2integer_step(outputX)).astype(int)
             #PID on y works in steps
-            pid[1].update(y + self.actuator.um2step(measureXY[1]))
-            outputy = pid[1].output
+            self.pids[1].update(y + self.actuator.um2step(measureXY[1]))
+            outputy = self.pids[1].output
             newy = outputy.astype(int) + y
             #save state to file asynchronously
             if self.recorder:
-                self.recorder.queue.append([pid.current_time-t0, x, y, *self.actuator.um2step(measureXY)])
+                self.recorder.queue.append([self.pids[0].current_time-t0, x, y, *self.actuator.um2step(measureXY)])
             newxy = np.minimum(MPC385._NSTEP, np.maximum(0, [newx, newy]))
             
             #update micromanipulator position
