@@ -94,7 +94,7 @@ def add_constant_deflection(ab2xy, outnames, dXs, dYs, durations, kp=0.9, moveba
                 #move the actuator back to its original position
                 actuator.move_to(x0, y0, z0)
                 
-def add_constant_deflectionX_move_to_constant_positiony(ab2xy, outnames, dXs, dys, durations, kp=0.9, moveback=False):
+def add_constant_deflectionX_move_to_constant_positiony(ab2xy, outnames, dXs, dys, durations, kp=0.9, moveback=False, maxYdispl=None):
     """Considering initial deflection is (0,0), successively add dX to the deflection and  dy to absolute position and stay at this constnt X deflection and constant y position during duration. Stay at this deflection and positon using using PID feedback (constant stress and constant strain respectively). Iterate on next dX, duration. Need ab2xy calibration matrix. Duration is in seconds. If None specified, continues until stopped."""
           
     #remember original positions of the sensors and actuator
@@ -129,13 +129,12 @@ def add_constant_deflectionX_move_to_constant_positiony(ab2xy, outnames, dXs, dy
                     m.start()
                     try:
                         while (duration is None) or (time.time() < t0 + duration):
-                            time.sleep(1)
+                            time.sleep(1) #is it too long ?
+                            x,y,z = m.xyz
+                            if maxYdispl is not None and abs(y - y0) > actuator.um2step(maxYdispl):
+                                break
                     except KeyboardInterrupt:
                         pass
-                    except:
-                        x1,y1,z1 = actuator.update_current_position()[1:]
-                        if (x1> x0 + 16000):
-                            pass        
                     finally:
                         #stop PID thread
                         m.go = False
