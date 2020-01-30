@@ -172,6 +172,8 @@ class constant_deflectionX_positionY(Thread):
         t0 = time.time()
         while self.go:
             (x,y,z), measureXY = current_positions(self.AB2XY, self.sensors, self.actuator)
+            #save current position of the micromanipulator for external access
+            self.xyz = (x,y,z)
             #feed to PIDs
             outputs = []
             #PID on X works in microns
@@ -188,7 +190,7 @@ class constant_deflectionX_positionY(Thread):
             if self.recorder:
                 self.recorder.queue.append([self.pids[0].current_time-t0, x, y, *self.actuator.um2step(measureXY)])
             newxy = np.minimum(MPC385._NSTEP, np.maximum(0, [newx, newy]))
-            
+
             #update micromanipulator position
             if newxy[1] != y or newxy[0] != x:
                 self.actuator.move_to(newxy[0], newxy[1], z)
