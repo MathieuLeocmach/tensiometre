@@ -354,7 +354,8 @@ class DT3100:
         answer = self.query('GMD', ascii=False)
         if answer[:6].decode('ascii') != '$GMDOK':
             raise ValueError("Unable to parse instrument answer: %s"%answer)
-        if not self.wait_readable(timeout):
+        #are these two line dangerous if the measuring value is already read ?
+        if len(answer)<11 and not self.wait_readable(timeout):
             raise IOError("Timeout after $GMD"%timeout)
         #read the 3 bytes of the measuring value. Maybe they are already at the end of the answer
         ret = answer[8:]
