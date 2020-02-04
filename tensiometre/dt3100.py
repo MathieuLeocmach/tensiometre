@@ -351,16 +351,19 @@ class DT3100:
     def readOne(self, timeout=1):
         """Read the instantaneous distance."""
         #ask for a single distance
-        answer = self.query('GMD', ascii=False)
+        #The command `$GMD<CR>` returns both ascii and binary
+        #so we cannot use self.query
+        assert self.mmd == 0, "Cannot send commands in measuring mode"
+        self.sock.send(b'$GMD\r')
+        answer = b''
+        #expected answer length is 11 bits
+        while len(answer)<11:
+            self.wait_readable()
+            answer += self.sock.recv(11)
         if answer[:6].decode('ascii') != '$GMDOK':
             raise ValueError("Unable to parse instrument answer: %s"%answer)
-        #are these two line dangerous if the measuring value is already read ?
-        if len(answer)<11 and not self.wait_readable(timeout):
-            raise IOError("Timeout after $GMD"%timeout)
         #read the 3 bytes of the measuring value. Maybe they are already at the end of the answer
-        ret = answer[8:]
-        while len(ret)<3 and self.wait_readable(timeout):
-            ret += self.sock.recv(3)
+        ret = answer[8:11]
         #convert to a distance
         return self.decode(ret)[0]
 
