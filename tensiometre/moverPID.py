@@ -131,7 +131,7 @@ class constant_position_XY(Thread):
             (x,y,z), measureXY = current_positions(self.AB2XY, self.sensors, self.actuator)
             #feed state to PIDs, in microns
             outputs = []
-            for measure, pid in zip(self.actuator.step2um([x,y]) + measureXY, self.pids):
+            for measure, pid in zip(self.actuator.step2um(np.array([x,y])) + measureXY, self.pids):
                 #PID works in steps
                 pid.update(measure)
                 outputs.append(pid.output)
