@@ -164,6 +164,7 @@ def add_constant_deflectionX_move_to_constant_positiony(ab2xy, outnames, dXs, dy
                         while (duration is None) or (time.time() < t0 + duration):
                             time.sleep(1) #is it too long ?
                             x,y,z = m.xyz
+                            y0 = actuator.um2integer_step(state0.arm[1])
                             if maxYdispl is not None and abs(y - y0) > actuator.um2step(maxYdispl):
                                 break
                     except KeyboardInterrupt:
