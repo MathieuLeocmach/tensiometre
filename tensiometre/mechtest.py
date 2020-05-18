@@ -186,7 +186,7 @@ def add_constant_deflectionX_move_to_constant_positiony(ab2xy, outnames, dXs, dy
                         m.go = False
                         m.join()
         finally:
-            if moveback:-
+            if moveback:
                 #move the actuator back to its original position
                 actuator.move_to(*actuator.um2integer_step(state0.arm))
 
