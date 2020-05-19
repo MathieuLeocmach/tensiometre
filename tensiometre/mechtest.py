@@ -159,7 +159,7 @@ def add_constant_deflectionX_move_to_constant_positiony(ab2xy, outnames, dXs, dy
         #setting up PID
         pids = []
         for s,kp,ki,kd in zip([state0.deflection[0], state0.head_to_ground[1]],kps,kis,kds):
-            pid = PID(k, ki, kd)
+            pid = PID(kp, ki, kd)
             pid.setPoint = s
             pids.append(pid)
         try:
