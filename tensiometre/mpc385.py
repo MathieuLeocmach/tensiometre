@@ -15,15 +15,15 @@ _STEP = 1./_ISTEP
 
 class MPC385:
     """Class to interact with a Sutter MPC-385 (=ROE-200 + MPC-200) micromanipulator controller using only the pySerial on Linux. Requires a FTDI driver configured for the custom vendor and product IDs of the ROE-200.
-    
+
     In short, one has to add the following line in /etc/udev/rules.d/99-ftdi.rules
 
     ACTION=="add", ATTRS{idVendor}=="1342", ATTRS{idProduct}=="0001", RUN+="/sbin/modprobe ftdi_sio" RUN+="/bin/sh -c 'echo 1342 0001 > /sys/bus/usb-serial/drivers/ftdi_sio/new_id'"
     """
-    
+
     _NSTEP = 400000
     """Maximum number of steps"""
-    
+
     def __init__(self, serial_number='SI9L8W3A', timeout=10.0):
         #self.port = serial.Serial('/dev/ttyUSB0', baudrate=128000)
         self.port = serial.Serial(
@@ -39,25 +39,25 @@ class MPC385:
         except AssertionError as e:
             self.port.close()
             raise ConnectionError("Unable to initialize micromanipulator state. Please unplug, turn off, wait, turn on, plug back.")
-        
+
     def close(self):
         self.port.close()
-        
+
     def wait_readable(self, timeout=1):
         """wait for the interface to be readable"""
         r, w, x = select.select([self.port], [], [], timeout)
         if self.port not in r:
             raise ConnectionError('Port not readable')
-    
+
     def wait_writeable(self, timeout=1):
         """wait for the interface to be writeable"""
         r, w, x = select.select([], [self.port], [], timeout)
         if self.port not in w:
             raise ConnectionError('Port not writeable')
-        
+
     def query(self, command, pattern='', timeout=1):
         """Write a command and parse the answer using struct syntax, stripped of final CR byte"""
-        self.wait_writeable(timeout)   
+        self.wait_writeable(timeout)
         self.port.write(command)
         s = struct.Struct(pattern)
         self.wait_readable(timeout)
@@ -70,17 +70,17 @@ class MPC385:
             e = IOError("%s did not match pattern %s"%(answer[:-1], pattern))
             e.answer = answer
             raise e
-    
+
     def currently_active_drive(self):
         """The currently active drive and firmware version"""
         K, Vl, Vh = self.query(b'K', '=BBB')
         self.version = (Vl, Vh)
         return K
-        
+
     def connected_manipulators(self):
         """Get number N of connected manipulators and drive status for all 4 drives"""
         return self.query(b'U', '=B????')
-    
+
     def change_drive(self, manipulator=1):
         """Change the currently selected micromanupulator"""
         m = int(manipulator)
@@ -92,17 +92,17 @@ class MPC385:
         mo = struct.unpack('=B', answer)[0]
         if mo != m:
             raise ValueError('manipulator %s was selected instead of %s'%(mo, manipulator))
-        
+
     def move_to_center(self):
         """Move to position (0,0,0). This operation is blocking."""
         self.query(b'N')
-        
+
     def update_current_position(self):
         """Get the currently selected micromanipulator and its current position in term of motor microsteps"""
         t = self.query(b'C', '=Biii')
         self.positions[t[0]-1] = t[1:]
         return t
-    
+
     def update_positions(self):
         """Update the internal value of current positions of all connected manipulators."""
         #remember the current drive
@@ -113,34 +113,34 @@ class MPC385:
                 self.update_current_position()
         #change back to the original drive
         self.change_drive(activedrive)
-        
+
     def step2um(self, pos):
         """Convert a position or an array of positions in microsteps to microns"""
         return pos * _STEP
-    
+
     def um2step(self, pos):
         """Convert a position or an array of positions in microns to microsteps (float values)"""
         return pos * _ISTEP
-        
+
     def um2integer_step(self, pos):
         """Convert a position or an array of positions in microns to integer microsteps"""
         if np.isscalar(pos):
-            return int(self.um2step(pos))
-        return self.um2step(pos).astype(int)
-    
+            return int(np.rint(self.um2step(pos)))
+        return np.rint(self.um2step(pos)).astype(int)
+
     def get_position(self, m=None):
         """Get the current position in microns. Either for all manipulators (default) or one"""
         if m is None:
             return self.step2um(self.positions)
         assert m in range(1,5), "Manipulator must be either None or in [1,2,3,4]"
         return self.step2um(self.positions[m-1])
-    
+
     def check_in_range(self, pos):
         if pos<0 or pos >self._NSTEP:
             raise ValueError('position %s is not in the range [0,400000)'%pos)
-    
+
     def move_straight(self, x, y, z, speed=16):
-        """Move in a straight line to specified coordinates (in microsteps). 
+        """Move in a straight line to specified coordinates (in microsteps).
         speed is the velocity of the longest moving axis, from 1 to 16"""
         #raise NotImplementedError("move_straight command as defined by ROE-200 manual makes the instrument hang.")
         assert speed in range(1,17)
@@ -164,7 +164,7 @@ class MPC385:
         self.query(struct.pack('=iii', int(x),int(y),int(z)), '')
         #restore timout
         self.port.timeout = timeout
-    
+
     def move_to(self, x,y,z):
         """Fast, stereotypic movement with firmware controlled velocity. Final position in microsteps."""
         for pos in [x,y,z]:
