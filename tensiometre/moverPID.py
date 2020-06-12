@@ -118,6 +118,7 @@ class constant_position_XY(Thread):
         self.actuator = actuator
         self.AB2XY = AB2XY
         self.pids = pids
+        assert len(self.pids) == 2
         if outputFile:
             self.recorder = Recorder(outputFile)
         else:
@@ -132,7 +133,7 @@ class constant_position_XY(Thread):
             #feed state to PIDs, in microns
             outputs = []
             for measure, pid in zip(self.actuator.step2um(np.array([x,y])) + measureXY, self.pids):
-                #PID works in steps
+                #PID works in microns
                 pid.update(measure)
                 outputs.append(pid.output)
             outputs = np.array(outputs)

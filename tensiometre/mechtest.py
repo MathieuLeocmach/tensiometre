@@ -30,6 +30,9 @@ def move_to_constant_positions(ab2xy, outnames, dxs, dys, durations, kp=0.9,ki =
         kps = kp
         kis = ki
         kds = kd
+    assert len(kps) == 2
+    assert len(kis) == 2
+    assert len(kds) == 2
     with closing(DT3100('169.254.3.100')) as sensorA, closing(DT3100('169.254.4.100')) as sensorB, closing(MPC385()) as actuator:
         sensors = [sensorA, sensorB]
         #setting up sensors
