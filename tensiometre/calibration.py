@@ -77,7 +77,7 @@ def sampled_single_direction(direction='x', samples=None, repeat = 10):
             actuator.move_to(x0, y0, z0)
     measures /= repeat
     measures -= initial
-    np.save('calib_' + direction + '_' datetime.now().strftime('%Y%m%d_%H%M_calib.npy'), measures)
+    np.save('calib_' + direction + '_' + datetime.now().strftime('%Y%m%d_%H%M_calib.npy'), measures)
     #fit the results to get coefficients
     func = lambda x,p: p * x
     if direction == "x":
