@@ -202,8 +202,8 @@ def add_constant_deflectionX_stay_constant_positiony(outname, ab2xy,kp=0.9,ki = 
 
 def stay_constant_deflection(outname, ab2xy, kp=0.9,ki = 0.0, kd = 0.0, duration=None, moveback=False, delay = 0, state0=None):
     """keep the head at constant position from the sensor"""
-    move_to_constant_deflection(
-        ab2xy, outnames = [outname], dxs = [0], dys = [0],durations=[duration],
+    add_constant_deflection(
+        ab2xy, outnames = [outname], dXs = [0], dYs = [0],durations=[duration],
         kp=kp,ki=ki, kd=kd, moveback=moveback, delay= delay, state0=state0
         )
 
