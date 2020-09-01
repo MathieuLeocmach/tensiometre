@@ -71,7 +71,7 @@ def move_to_constant_positions(ab2xy, outnames, dxs, dys, durations, kp=0.9,ki =
                 #move the actuator back to its original position
                 actuator.move_to(*actuator.um2integer_step(state0.arm))
 
-def add_constant_deflection(ab2xy, outnames, dXs, dYs, durations, kp=0.9,ki = 0.0, kd =0.0, moveback=False, state0=None):
+def add_constant_deflection(ab2xy, outnames, dXs, dYs, durations, kp=0.9,ki = 0.0, kd =0.0, moveback=False, delay=0, state0=None):
     """Considering initial deflection is 0 in x
     and successively add dX to the deflection during duration
     and stay at this deflection using PID feedback (constant stress).
@@ -114,7 +114,7 @@ def add_constant_deflection(ab2xy, outnames, dXs, dYs, durations, kp=0.9,ki = 0.
                 with open(outname, "wb") as fout:
                     m = moverPID.constant_deflection_XY(
                         sensors, actuator,
-                        ab2xy, pids, outputFile=fout
+                        ab2xy, pids, delay, outputFile=fout
                         )
                     t0 = time.time()
                     m.start()
@@ -200,11 +200,11 @@ def add_constant_deflectionX_stay_constant_positiony(outname, ab2xy,kp=0.9,ki = 
         kp=kp,ki=ki, kd=kd, moveback=moveback, maxYdispl= maxYdispl, state0=state0
         )
 
-def stay_constant_deflection(outname, ab2xy, kp=0.9,ki = 0.0, kd = 0.0, duration=None, moveback=False, state0=None):
+def stay_constant_deflection(outname, ab2xy, kp=0.9,ki = 0.0, kd = 0.0, duration=None, moveback=False, delay = 0, state0=None):
     """keep the head at constant position from the sensor"""
     move_to_constant_deflection(
         ab2xy, outnames = [outname], dxs = [0], dys = [0],durations=[duration],
-        kp=kp,ki=ki, kd=kd, moveback=moveback, state0=state0
+        kp=kp,ki=ki, kd=kd, moveback=moveback, delay= delay, state0=state0
         )
 
 def move_to_constant_position(outname, ab2xy, kp=0.9,ki = 0.0, kd = 0.0, dy =-100, dx=0, duration=None, moveback=False, state0=None):
