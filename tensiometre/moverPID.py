@@ -67,12 +67,13 @@ class MoverPID_Y(Thread):
 
 class constant_deflection_XY(Thread):
     """Thread in charge of controlling the x (width) and y (depth) position of the micromanipulator so that the target stays at a given distances from the sensors (constant force)."""
-    def __init__(self, sensors, actuator, AB2XY, delay, pids=[PID(), PID()], outputFile=False):
+    def __init__(self, sensors, actuator, AB2XY, pids=[PID(), PID()], outputFile=False, delay=0):
         """AB2XY is the transfer matrix between sensor coordinates and actuator coordinates."""
         Thread.__init__(self)
         self.sensors = sensors
         self.actuator = actuator
         self.AB2XY = AB2XY
+        assert len(pids) == 2, "Two PIDs are needed"
         self.pids = pids
         self.delay = delay
         if outputFile:
@@ -104,7 +105,7 @@ class constant_deflection_XY(Thread):
             #update micromanipulator position
             if newxy[1] != y or newxy[0] != x:
                 self.actuator.move_to(newxy[0], newxy[1], z)
-            time.sleep(delay)
+            time.sleep(self.delay)
         #wait for recorder completion
         while len(self.recorder.queue)>0:
             time.sleep(0.01)

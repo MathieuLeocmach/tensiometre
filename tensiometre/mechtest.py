@@ -88,6 +88,9 @@ def add_constant_deflection(ab2xy, outnames, dXs, dYs, durations, kp=0.9,ki = 0.
         kps = kp
         kis = ki
         kds = kd
+    assert len(kps)==2
+    assert len(kis)==2
+    assert len(kds)==2
     with closing(DT3100('169.254.3.100')) as sensorA, closing(DT3100('169.254.4.100')) as sensorB, closing(MPC385()) as actuator:
         sensors = [sensorA, sensorB]
         #setting up sensors
@@ -114,7 +117,7 @@ def add_constant_deflection(ab2xy, outnames, dXs, dYs, durations, kp=0.9,ki = 0.
                 with open(outname, "wb") as fout:
                     m = moverPID.constant_deflection_XY(
                         sensors, actuator,
-                        ab2xy, pids, delay, outputFile=fout
+                        ab2xy, pids, outputFile=fout, delay=delay,
                         )
                     t0 = time.time()
                     m.start()
