@@ -24,9 +24,9 @@ def current_positions(ab2xy, sensors, actuator):
 
 class MoverPID_Y(Thread):
     """Thread in charge of controlling the Y position of the tensiometer (depth) so that the target stays at a given distance from the sensor (constant force)."""
-    def __init__(self, capteur, mpc, pid=PID(), outputFile=False):
+    def __init__(self, sensor, mpc, pid=PID(), outputFile=False):
         Thread.__init__(self)
-        self.capteur = capteur
+        self.sensor = sensor
         self.mpc = mpc
         self.pid = pid
         if outputFile:
@@ -40,7 +40,7 @@ class MoverPID_Y(Thread):
         t0 = time.time()
         while self.go:
             #ask asynchronously for a position measurement
-            reader = ReadOne(self.capteur)
+            reader = ReadOne(self.sensor)
             reader.start()
             #in parallel, ask for the current position of the micromanipulator
             x,y,z = self.mpc.update_current_position()[-3:]
@@ -222,19 +222,19 @@ class Recorder(Thread):
 
 def step_response_Y(outname, kp, ki=0, kd=0, dy=10., originalsetpoint=None):
     """Perform a single depthwise step of dy microns and record the PID response to a file named outname."""
-    with closing(DT3100('169.254.3.100')) as capteur, closing(MPC385()) as mpc:
+    with closing(DT3100('169.254.3.100')) as sensor, closing(MPC385()) as mpc:
         #setting up sensor
-        capteur.set_averaging_type(3)
-        capteur.set_averaging_number(3)
+        sensor.set_averaging_type(3)
+        sensor.set_averaging_number(3)
         #remember original positions of the sensor and actuator
         if originalsetpoint is None:
-            originalsetpoint = capteur.readOne().m
+            originalsetpoint = sensor.readOne().m
         x0,y0,z0 = mpc.update_current_position()[1:]
         #setting up PID
         pid = PID(kp, ki, kd)
         pid.setPoint = originalsetpoint
         with open(outname, "wb") as fout:
-            m = MoverPID_Y(capteur, mpc, pid, outputFile=fout)
+            m = MoverPID_Y(sensor, mpc, pid, outputFile=fout)
             m.start()
             time.sleep(1)
             pid.setPoint += dy
