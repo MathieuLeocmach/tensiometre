@@ -55,10 +55,10 @@ class MoverPID_Y(Thread):
             #translate PID output in microns into
             #the new position of the micromanipulator in steps
             newy = y - self.actuator.um2step(self.pid.output)
-            newy = int(min(self.actuator._NSTEP, max(0, newy)))
+            newpos = self.actuator.truncate_steps(np.array(x, newy, z))
             #update micromanipulator position
-            if newy != y:
-                self.actuator.move_to(x, newy, z)
+            if newpos[1] != y:
+                self.actuator.move_to(*newpos)
         while len(self.recorder.queue)>0:
             time.sleep(0.01)
         self.recorder.go = False
@@ -101,7 +101,7 @@ class constant_deflection_XY(Thread):
             if self.recorder:
                 self.recorder.queue.append([pid.current_time-t0, x,y, *self.actuator.um2step(measureXY)])
             newxy = np.minimum(self.actuator._NSTEP, np.maximum(0, newxy))
-
+            newxy = self.actuator.truncate_steps(newxy)
             #update micromanipulator position
             if newxy[1] != y or newxy[0] != x:
                 self.actuator.move_to(newxy[0], newxy[1], z)
@@ -145,7 +145,7 @@ class constant_position_XY(Thread):
                 self.recorder.queue.append([pid.current_time-t0, x, y, *self.actuator.um2step(measureXY)])
             #the new position of the micromanipulator in steps
             newxy = self.actuator.um2integer_step(outputs) + [x,y]
-            newxy = np.minimum(self.actuator._NSTEP, np.maximum(0, newxy))
+            newxy = self.actuator.truncate_steps(newxy)
             #update micromanipulator position
             if newxy[1] != y or newxy[0] != x:
                 self.actuator.move_to(newxy[0], newxy[1], z)
@@ -195,7 +195,7 @@ class constant_deflectionX_positionY(Thread):
             #save state to file asynchronously
             if self.recorder:
                 self.recorder.queue.append([self.pids[0].current_time-t0, x, y, *self.actuator.um2step(measureXY)])
-            newxy = np.minimum(self.actuator._NSTEP, np.maximum(0, [newx, newy]))
+            newxy = self.actuator.truncate_steps(newxy)
 
             #update micromanipulator position
             if newxy[1] != y or newxy[0] != x:

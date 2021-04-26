@@ -128,6 +128,10 @@ class MPC385:
             return int(np.rint(self.um2step(pos)))
         return np.rint(self.um2step(pos)).astype(int)
 
+    def truncate_steps(self, pos):
+        """Take an arbitrary position in microsteps and saturates it between 0 and the maximum number of steps"""
+        return np.minimum(self._NSTEP, np.maximum(0, pos))
+
     def get_position(self, m=None):
         """Get the current position in microns. Either for all manipulators (default) or one"""
         if m is None:
