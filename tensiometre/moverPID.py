@@ -7,7 +7,7 @@ from tensiometre.mpc385 import MPC385
 from tensiometre.pid import PID
 
 def current_positions(ab2xy, sensors, actuator):
-    """Ask both sensors and actuator its current position."""
+    """Ask all sensor readings and actuator current position. The two first sensors are converted according to ab2xy."""
     #ask asynchronously for a position measurement for each sensor
     readers = [ReadOne(sensor) for sensor in sensors]
     for reader in readers:
@@ -18,8 +18,8 @@ def current_positions(ab2xy, sensors, actuator):
     for reader in readers:
         reader.join()
     #translate sensor coordinates into micromanipulator coordinates
-    measureXY = np.matmul(ab2xy, [reader.value.m for reader in readers])
-    return (x,y,z), measureXY
+    measureXY = np.matmul(ab2xy, [reader.value.m for reader in readers[:2]])
+    return ((x,y,z), measureXY,) + tuple(reader.value.m for reader in readers[2:])
 
 
 class MoverPID_Y(Thread):
