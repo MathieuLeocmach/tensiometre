@@ -24,10 +24,10 @@ def current_positions(ab2xy, sensors, actuator):
 
 class MoverPID_Y(Thread):
     """Thread in charge of controlling the Y position of the tensiometer (depth) so that the target stays at a given distance from the sensor (constant force)."""
-    def __init__(self, sensor, mpc, pid=PID(), outputFile=False):
+    def __init__(self, sensor, actuator, pid=PID(), outputFile=False):
         Thread.__init__(self)
         self.sensor = sensor
-        self.mpc = mpc
+        self.actuator = actuator
         self.pid = pid
         if outputFile:
             self.recorder = Recorder(outputFile)
@@ -43,7 +43,7 @@ class MoverPID_Y(Thread):
             reader = ReadOne(self.sensor)
             reader.start()
             #in parallel, ask for the current position of the micromanipulator
-            x,y,z = self.mpc.update_current_position()[-3:]
+            x,y,z = self.actuator.update_current_position()[-3:]
             #wait for the position measurement
             reader.join()
             measure = reader.value.m
@@ -54,11 +54,11 @@ class MoverPID_Y(Thread):
                 self.recorder.queue.append([self.pid.current_time-t0, measure, self.pid.output])
             #translate PID output in microns into
             #the new position of the micromanipulator in steps
-            newy = y - self.mpc.um2step(self.pid.output)
-            newy = int(min(MPC385._NSTEP, max(0, newy)))
+            newy = y - self.actuator.um2step(self.pid.output)
+            newy = int(min(self.actuator._NSTEP, max(0, newy)))
             #update micromanipulator position
             if newy != y:
-                self.mpc.move_to(x, newy, z)
+                self.actuator.move_to(x, newy, z)
         while len(self.recorder.queue)>0:
             time.sleep(0.01)
         self.recorder.go = False
@@ -100,7 +100,7 @@ class constant_deflection_XY(Thread):
             #save state to file asynchronously
             if self.recorder:
                 self.recorder.queue.append([pid.current_time-t0, x,y, *self.actuator.um2step(measureXY)])
-            newxy = np.minimum(MPC385._NSTEP, np.maximum(0, newxy))
+            newxy = np.minimum(self.actuator._NSTEP, np.maximum(0, newxy))
 
             #update micromanipulator position
             if newxy[1] != y or newxy[0] != x:
@@ -145,7 +145,7 @@ class constant_position_XY(Thread):
                 self.recorder.queue.append([pid.current_time-t0, x, y, *self.actuator.um2step(measureXY)])
             #the new position of the micromanipulator in steps
             newxy = self.actuator.um2integer_step(outputs) + [x,y]
-            newxy = np.minimum(MPC385._NSTEP, np.maximum(0, newxy))
+            newxy = np.minimum(self.actuator._NSTEP, np.maximum(0, newxy))
             #update micromanipulator position
             if newxy[1] != y or newxy[0] != x:
                 self.actuator.move_to(newxy[0], newxy[1], z)
@@ -195,7 +195,7 @@ class constant_deflectionX_positionY(Thread):
             #save state to file asynchronously
             if self.recorder:
                 self.recorder.queue.append([self.pids[0].current_time-t0, x, y, *self.actuator.um2step(measureXY)])
-            newxy = np.minimum(MPC385._NSTEP, np.maximum(0, [newx, newy]))
+            newxy = np.minimum(self.actuator._NSTEP, np.maximum(0, [newx, newy]))
 
             #update micromanipulator position
             if newxy[1] != y or newxy[0] != x:
@@ -222,19 +222,19 @@ class Recorder(Thread):
 
 def step_response_Y(outname, kp, ki=0, kd=0, dy=10., originalsetpoint=None):
     """Perform a single depthwise step of dy microns and record the PID response to a file named outname."""
-    with closing(DT3100('169.254.3.100')) as sensor, closing(MPC385()) as mpc:
+    with closing(DT3100('169.254.3.100')) as sensor, closing(MPC385()) as actuator:
         #setting up sensor
         sensor.set_averaging_type(3)
         sensor.set_averaging_number(3)
         #remember original positions of the sensor and actuator
         if originalsetpoint is None:
             originalsetpoint = sensor.readOne().m
-        x0,y0,z0 = mpc.update_current_position()[1:]
+        x0,y0,z0 = actuator.update_current_position()[1:]
         #setting up PID
         pid = PID(kp, ki, kd)
         pid.setPoint = originalsetpoint
         with open(outname, "wb") as fout:
-            m = MoverPID_Y(sensor, mpc, pid, outputFile=fout)
+            m = MoverPID_Y(sensor, actuator, pid, outputFile=fout)
             m.start()
             time.sleep(1)
             pid.setPoint += dy
@@ -243,16 +243,16 @@ def step_response_Y(outname, kp, ki=0, kd=0, dy=10., originalsetpoint=None):
             m.go = False
             m.join()
         #move the actuator back to its original position
-        mpc.move_to(x0, y0, z0)
+        actuator.move_to(x0, y0, z0)
     #read back the data and print some metrics
     meas = np.fromfile(outname)
     ts, measured, out = meas.reshape((meas.shape[0]//3, 3)).T
-    if not np.any(np.abs(measured-originalsetpoint-dy)<mpc.step2um(1)):
+    if not np.any(np.abs(measured-originalsetpoint-dy)<actuator.step2um(1)):
         print("does not converge")
     else:
         print("cverge\teRMS\t%overshoot")
         print('%g\t%g\t%g'%(
-            ts[np.where(np.abs(measured-originalsetpoint-dy)<mpc.step2um(1))[0][0]-1],
+            ts[np.where(np.abs(measured-originalsetpoint-dy)<actuator.step2um(1))[0][0]-1],
             np.sqrt(np.mean((measured[np.where(ts>2)[0][0]:]-originalsetpoint-dy)**2)),
             100*(measured.max()-originalsetpoint-dy)/dy
         ))
@@ -265,7 +265,7 @@ def step_response(outname, AB2XY, kp, ki=0, kd=0, dx=10., dy=10., originalsetpoi
         ki = [ki,ki]
     if np.isscalar(kd):
         kd = [kd,kd]
-    with closing(DT3100('169.254.3.100')) as sensorA, closing(DT3100('169.254.4.100')) as sensorB, closing(MPC385()) as mpc:
+    with closing(DT3100('169.254.3.100')) as sensorA, closing(DT3100('169.254.4.100')) as sensorB, closing(MPC385()) as actuator:
         sensors = [sensorA, sensorB]
         #setting up sensors
         for sensor in sensors:
@@ -275,7 +275,7 @@ def step_response(outname, AB2XY, kp, ki=0, kd=0, dx=10., dy=10., originalsetpoi
         if originalsetpoint is None:
             originalsetpoint = np.array([sensor.readOne().m for sensor in sensors])
             originalsetpoint = np.matmul(AB2XY, originalsetpoint)
-        x0,y0,z0 = mpc.update_current_position()[1:]
+        x0,y0,z0 = actuator.update_current_position()[1:]
         #setting up PID
         pids = []
         for p,i,d, s in zip(kp, ki, kd, originalsetpoint):
@@ -283,7 +283,7 @@ def step_response(outname, AB2XY, kp, ki=0, kd=0, dx=10., dy=10., originalsetpoi
             pid.setPoint = s
             pids.append(pid)
         with open(outname, "wb") as fout:
-            m = MoverPID_XY(sensors, mpc, AB2XY, pids, outputFile=fout)
+            m = MoverPID_XY(sensors, actuator, AB2XY, pids, outputFile=fout)
             m.start()
             time.sleep(1)
             pids[0].setPoint += dx
@@ -293,18 +293,18 @@ def step_response(outname, AB2XY, kp, ki=0, kd=0, dx=10., dy=10., originalsetpoi
             m.go = False
             m.join()
         #move the actuator back to its original position
-        mpc.move_to(x0, y0, z0)
+        actuator.move_to(x0, y0, z0)
     #read back the data and print some metrics
     meas = np.fromfile(outname)
     ts, mx, my, ox, oy = meas.reshape((meas.shape[0]//5, 5)).T
     measures = np.column_stack([mx,my])
     rms = np.sqrt(np.sum((originalsetpoint+[dx,dy]-measures)**2, -1))
-    if not np.any(rms<mpc.step2um(1)):
+    if not np.any(rms<actuator.step2um(1)):
         print("does not converge")
     else:
         print("cverge\teRMS\t%overshoot")
         print('%g\t%g\t%g'%(
-            ts[np.where(rms<mpc.step2um(1))[0][0]-1],
+            ts[np.where(rms<actuator.step2um(1))[0][0]-1],
             np.sqrt(np.mean(rms[np.where(ts>2)[0][0]:]**2)),
             (100*(measures-originalsetpoint-[dx,dy])/[dx,dy]).max()
         ))
