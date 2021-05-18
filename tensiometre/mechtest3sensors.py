@@ -9,12 +9,16 @@ from tensiometre import moverPID
 class State:
     """A state of the tensiometer, containing both actuator position and deflection. All in microns."""
     def __init__(self, sensors, actuator, ab2xy):
-        self.arm, self.deflection = moverPID.current_positions(ab2xy, sensors, actuator)
-        self.arm = actuator.step2um(np.array(list(self.arm)))
+        self.actuator_pos, self.deflection, self.y_ag = moverPID.current_positions(ab2xy, sensors, actuator)
+        self.actuator_pos = actuator.step2um(np.array(list(self.actuator_pos)))
+
+    @property
+    def arm_to_ground(self):
+        return np.array([self.actuator_pos[0], self.y_ag])
 
     @property
     def head_to_ground(self):
-        return self.arm[:-1] + self.deflection
+        return self.arm_to_ground[:-1] + self.deflection
 
 
 def move_to_constant_positions(ab2xy, outnames, dxs, dys, durations, kp=0.9,ki = 0.0, kd =0.0,  moveback=False, state0=None):
@@ -33,8 +37,11 @@ def move_to_constant_positions(ab2xy, outnames, dxs, dys, durations, kp=0.9,ki =
     assert len(kps) == 2
     assert len(kis) == 2
     assert len(kds) == 2
-    with closing(DT3100('169.254.3.100')) as sensorA, closing(DT3100('169.254.4.100')) as sensorB, closing(MPC385()) as actuator:
-        sensors = [sensorA, sensorB]
+    with closing(DT3100('169.254.3.100')) as sensorA,
+        closing(DT3100('169.254.4.100')) as sensorB,
+        closing(DT3100('169.254.5.100')) as sensorC,
+        closing(MPC385()) as actuator:
+        sensors = [sensorA, sensorB, sensorC]
         #setting up sensors
         for sensor in sensors:
             sensor.set_averaging_type(3)
@@ -54,7 +61,7 @@ def move_to_constant_positions(ab2xy, outnames, dxs, dys, durations, kp=0.9,ki =
                 for s, pid in zip(initialposition + np.array([dx,dy]), pids):
                     pid.setPoint = s
                 with open(outname, "wb") as fout:
-                    m = moverPID.constant_position_XY(sensors, actuator, ab2xy, pids, outputFile=fout)
+                    m = moverPID.constant_position_XY_3sensors(sensors, actuator, ab2xy, pids, outputFile=fout)
                     t0 = time.time()
                     m.start()
                     try:
@@ -69,7 +76,7 @@ def move_to_constant_positions(ab2xy, outnames, dxs, dys, durations, kp=0.9,ki =
         finally:
             if moveback:
                 #move the actuator back to its original position
-                actuator.move_to(*actuator.um2integer_step(state0.arm))
+                actuator.move_to(*actuator.um2integer_step(state0.actuator_pos))
 
 def add_constant_deflection(ab2xy, outnames, dXs, dYs, durations, kp=0.9,ki = 0.0, kd =0.0, moveback=False, delay=0, state0=None):
     """Considering initial deflection is 0 in x
@@ -91,8 +98,11 @@ def add_constant_deflection(ab2xy, outnames, dXs, dYs, durations, kp=0.9,ki = 0.
     assert len(kps)==2
     assert len(kis)==2
     assert len(kds)==2
-    with closing(DT3100('169.254.3.100')) as sensorA, closing(DT3100('169.254.4.100')) as sensorB, closing(MPC385()) as actuator:
-        sensors = [sensorA, sensorB]
+    with closing(DT3100('169.254.3.100')) as sensorA,
+        closing(DT3100('169.254.4.100')) as sensorB,
+        closing(DT3100('169.254.5.100')) as sensorC,
+        closing(MPC385()) as actuator:
+        sensors = [sensorA, sensorB, sensorC]
         #setting up sensors
         for sensor in sensors:
             sensor.set_averaging_type(3)
@@ -115,7 +125,7 @@ def add_constant_deflection(ab2xy, outnames, dXs, dYs, durations, kp=0.9,ki = 0.
                 ):
                     pid.setPoint = s
                 with open(outname, "wb") as fout:
-                    m = moverPID.constant_deflection_XY(
+                    m = moverPID.constant_deflection_XY_3sensors(
                         sensors, actuator,
                         ab2xy, pids, outputFile=fout, delay=delay,
                         )
@@ -133,7 +143,7 @@ def add_constant_deflection(ab2xy, outnames, dXs, dYs, durations, kp=0.9,ki = 0.
         finally:
             if moveback:
                 #move the actuator back to its original position
-                actuator.move_to(*actuator.um2integer_step(state0.arm))
+                actuator.move_to(*actuator.um2integer_step(state0.actuator_pos))
 
 def add_constant_deflectionX_move_to_constant_positiony(ab2xy, outnames, dXs, dys, durations, kp=0.9,ki = 0.0, kd =0.0, moveback=False, maxYdispl=None, state0=None):
     """Considering initial deflection is (0,0),
@@ -153,8 +163,11 @@ def add_constant_deflectionX_move_to_constant_positiony(ab2xy, outnames, dXs, dy
         kds = kd
 
     #remember original positions of the sensors and actuator
-    with closing(DT3100('169.254.3.100')) as sensorA, closing(DT3100('169.254.4.100')) as sensorB, closing(MPC385()) as actuator:
-        sensors = [sensorA, sensorB]
+    with closing(DT3100('169.254.3.100')) as sensorA,
+        closing(DT3100('169.254.4.100')) as sensorB,
+        closing(DT3100('169.254.5.100')) as sensorC,
+        closing(MPC385()) as actuator:
+        sensors = [sensorA, sensorB, sensorC]
         #setting up sensors
         for sensor in sensors:
             sensor.set_averaging_type(3)
@@ -175,14 +188,14 @@ def add_constant_deflectionX_move_to_constant_positiony(ab2xy, outnames, dXs, dy
                 for s, pid in zip(ip, pids):
                     pid.setPoint = s
                 with open(outname, "wb") as fout:
-                    m = moverPID.constant_deflectionX_positionY(sensors, actuator, ab2xy, pids, outputFile=fout)
+                    m = moverPID.constant_deflectionX_positionY_3sensors(sensors, actuator, ab2xy, pids, outputFile=fout)
                     t0 = time.time()
                     m.start()
                     try:
                         while (duration is None) or (time.time() < t0 + duration):
                             time.sleep(1) #is it too long ?
                             x,y,z = m.xyz
-                            y0 = actuator.um2integer_step(state0.arm[1])
+                            y0 = actuator.um2integer_step(state0.actuator_pos[1])
                             if maxYdispl is not None and abs(y - y0) > actuator.um2step(maxYdispl):
                                 break
                     except KeyboardInterrupt:
@@ -194,7 +207,7 @@ def add_constant_deflectionX_move_to_constant_positiony(ab2xy, outnames, dXs, dy
         finally:
             if moveback:
                 #move the actuator back to its original position
-                actuator.move_to(*actuator.um2integer_step(state0.arm))
+                actuator.move_to(*actuator.um2integer_step(state0.actuator_pos))
 
 def add_constant_deflectionX_stay_constant_positiony(outname, ab2xy,kp=0.9,ki = 0.0, kd = 0.0, dX=30, dy=0, duration=None, moveback=False, maxYdispl=None, state0=None):
     """Add a constant deflection of dx while staying at the same absolute position in y"""
