@@ -206,6 +206,52 @@ class constant_deflectionX_positionY(Thread):
         self.recorder.go = False
         self.recorder.join()
 
+class constant_position_XY_3sensors(Thread):
+    """Thread in charge of controlling the X (width) and Y (depth) position of
+the tensiometer so that the head stays at the same absolute position.
+The y position is obtained from a third sensor between the arm and the tank (ground).
+"""
+    def __init__(self, sensors, actuator, AB2XY, pids=[PID(), PID()], outputFile=False):
+        """AB2XY is the transfer matrix between sensor coordinates and actuator coordinates."""
+        Thread.__init__(self)
+        assert len(sensors)==3, "Three sensors are needed"
+        self.sensors = sensors
+        self.actuator = actuator
+        self.AB2XY = AB2XY
+        self.pids = pids
+        assert len(self.pids) == 2
+        if outputFile:
+            self.recorder = Recorder(outputFile)
+        else:
+            self.recorder = False
+        self.go = True
+
+    def run(self):
+        self.recorder.start()
+        t0 = time.time()
+        while self.go:
+            (x,y,z), measureXY, y_ag = current_positions(self.AB2XY, self.sensors, self.actuator)
+            #feed state to PIDs, in microns
+            #in x, we beleive the micromanipulator reading
+            self.pids[0] = self.actuator.step2um(x) + measureXY[0]
+            #in y we beleive the third sensor reading
+            self.pids[1] = y_ag + measureXY[1]
+            outputs = np.array([pid.output for pid in self.pids])
+            #save state to file asynchronously
+            if self.recorder:
+                self.recorder.queue.append([pid.current_time-t0, x, y, *self.actuator.um2step(measureXY), y_ag])
+            #the new position of the micromanipulator in steps
+            newxy = self.actuator.um2integer_step(outputs) + [x,y]
+            newxy = self.actuator.truncate_steps(newxy)
+            #update micromanipulator position
+            if newxy[1] != y or newxy[0] != x:
+                self.actuator.move_to(newxy[0], newxy[1], z)
+        #wait for recorder completion
+        while len(self.recorder.queue)>0:
+            time.sleep(0.01)
+        self.recorder.go = False
+        self.recorder.join()
+
 class constant_deflectionX_positionY_3sensors(Thread):
     """Thread in charge of controlling the x (width) and y (depth) position of
 the micromanipulator so that deflection stays constant in x (constant force) and
