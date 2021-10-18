@@ -233,13 +233,13 @@ The y position is obtained from a third sensor between the arm and the tank (gro
             (x,y,z), measureXY, y_ag = current_positions(self.AB2XY, self.sensors, self.actuator)
             #feed state to PIDs, in microns
             #in x, we beleive the micromanipulator reading
-            self.pids[0] = self.actuator.step2um(x) + measureXY[0]
+            self.pids[0].update(self.actuator.step2um(x) + measureXY[0])
             #in y we beleive the third sensor reading
-            self.pids[1] = y_ag + measureXY[1]
+            self.pids[1].update(y_ag + measureXY[1])
             outputs = np.array([pid.output for pid in self.pids])
             #save state to file asynchronously
             if self.recorder:
-                self.recorder.queue.append([pid.current_time-t0, x, y, *self.actuator.um2step(measureXY), y_ag])
+                self.recorder.queue.append([self.pids[0].current_time-t0, x, y, *self.actuator.um2step(measureXY), y_ag])
             #the new position of the micromanipulator in steps
             newxy = self.actuator.um2integer_step(outputs) + [x,y]
             newxy = self.actuator.truncate_steps(newxy)

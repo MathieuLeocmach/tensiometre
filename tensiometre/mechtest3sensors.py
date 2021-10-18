@@ -37,10 +37,7 @@ def move_to_constant_positions(ab2xy, outnames, dxs, dys, durations, kp=0.9,ki =
     assert len(kps) == 2
     assert len(kis) == 2
     assert len(kds) == 2
-    with closing(DT3100('169.254.3.100')) as sensorA,
-        closing(DT3100('169.254.4.100')) as sensorB,
-        closing(DT3100('169.254.5.100')) as sensorC,
-        closing(MPC385()) as actuator:
+    with closing(DT3100('169.254.3.100')) as sensorA, closing(DT3100('169.254.4.100')) as sensorB, closing(DT3100('169.254.5.100')) as sensorC, closing(MPC385()) as actuator:
         sensors = [sensorA, sensorB, sensorC]
         #setting up sensors
         for sensor in sensors:
@@ -98,10 +95,7 @@ def add_constant_deflection(ab2xy, outnames, dXs, dYs, durations, kp=0.9,ki = 0.
     assert len(kps)==2
     assert len(kis)==2
     assert len(kds)==2
-    with closing(DT3100('169.254.3.100')) as sensorA,
-        closing(DT3100('169.254.4.100')) as sensorB,
-        closing(DT3100('169.254.5.100')) as sensorC,
-        closing(MPC385()) as actuator:
+    with closing(DT3100('169.254.3.100')) as sensorA, closing(DT3100('169.254.4.100')) as sensorB, closing(DT3100('169.254.5.100')) as sensorC, closing(MPC385()) as actuator:
         sensors = [sensorA, sensorB, sensorC]
         #setting up sensors
         for sensor in sensors:
@@ -163,10 +157,7 @@ def add_constant_deflectionX_move_to_constant_positiony(ab2xy, outnames, dXs, dy
         kds = kd
 
     #remember original positions of the sensors and actuator
-    with closing(DT3100('169.254.3.100')) as sensorA,
-        closing(DT3100('169.254.4.100')) as sensorB,
-        closing(DT3100('169.254.5.100')) as sensorC,
-        closing(MPC385()) as actuator:
+    with closing(DT3100('169.254.3.100')) as sensorA, closing(DT3100('169.254.4.100')) as sensorB, closing(DT3100('169.254.5.100')) as sensorC, closing(MPC385()) as actuator:
         sensors = [sensorA, sensorB, sensorC]
         #setting up sensors
         for sensor in sensors:
