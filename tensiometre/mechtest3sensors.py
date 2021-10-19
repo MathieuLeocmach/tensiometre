@@ -18,7 +18,7 @@ class State:
 
     @property
     def head_to_ground(self):
-        return self.arm_to_ground[:-1] + self.deflection
+        return self.arm_to_ground + self.deflection
 
 
 def move_to_constant_positions(ab2xy, outnames, dxs, dys, durations, kp=0.9,ki = 0.0, kd =0.0,  moveback=False, state0=None):
