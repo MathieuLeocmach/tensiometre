@@ -195,6 +195,7 @@ class constant_deflectionX_positionY(Thread):
             #save state to file asynchronously
             if self.recorder:
                 self.recorder.queue.append([self.pids[0].current_time-t0, x, y, *self.actuator.um2step(measureXY)])
+            newxy = np.array((newx,newy))
             newxy = self.actuator.truncate_steps(newxy)
 
             #update micromanipulator position
@@ -297,6 +298,7 @@ The y position is obtained from a third sensor between the arm and the tank (gro
             #save state to file asynchronously
             if self.recorder:
                 self.recorder.queue.append([self.pids[0].current_time-t0, x, y, *self.actuator.um2step(measureXY), y_ag])
+            newxy = np.array((newx,newy))
             newxy = self.actuator.truncate_steps(newxy)
 
             #update micromanipulator position
