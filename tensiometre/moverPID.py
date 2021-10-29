@@ -310,6 +310,58 @@ The y position is obtained from a third sensor between the arm and the tank (gro
         self.recorder.go = False
         self.recorder.join()
 
+class constant_deflection_XY_3sensors(Thread):
+    """Thread in charge of controlling the x (width) and y (depth) position of the micromanipulator so that the target stays at a given distances from the sensors (constant force)."""
+    def __init__(self, sensors, actuator, AB2XY, pids=[PID(), PID()], outputFile=False, delay=0):
+        """AB2XY is the transfer matrix between sensor coordinates and actuator coordinates."""
+        Thread.__init__(self)
+        assert len(sensors)==3, "Three sensors are needed"
+        self.sensors = sensors
+        self.actuator = actuator
+        self.AB2XY = AB2XY
+        assert len(pids) == 2, "Two PIDs are needed"
+        self.pids = pids
+        self.delay = delay
+        if outputFile:
+            self.recorder = Recorder(outputFile)
+        else:
+            self.recorder = False
+        self.go = True
+
+    def run(self):
+        self.recorder.start()
+        t0 = time.time()
+        while self.go:
+            (x,y,z), measureXY, y_ag = current_positions(self.AB2XY, self.sensors, self.actuator)
+            #feed to PIDs
+            self.pids[0].update(measureXY[0])
+            outputX = self.pids[0].output
+            #translate PID output in microns into
+            #the new position of the micromanipulator in steps
+            newx = x - self.actuator.um2integer_step(outputX)
+            #PID on y works in microns
+            self.pids[1].update(measureXY[1] + y_ag-self.actuator.step2um(y))
+            outputy = self.pids[1].output
+            #translate PID output in microns into
+            #the new position of the micromanipulator in steps
+            newy = y - self.actuator.um2integer_step(outputy)
+            newxy = np.array((newx,newy))
+
+            #save state to file asynchronously
+            if self.recorder:
+                self.recorder.queue.append([self.pids[0].current_time-t0, x, y, *self.actuator.um2step(measureXY), y_ag])
+            newxy = np.minimum(self.actuator._NSTEP, np.maximum(0, newxy))
+            newxy = self.actuator.truncate_steps(newxy)
+            #update micromanipulator position
+            if newxy[1] != y or newxy[0] != x:
+                self.actuator.move_to(newxy[0], newxy[1], z)
+            time.sleep(self.delay)
+        #wait for recorder completion
+        while len(self.recorder.queue)>0:
+            time.sleep(0.01)
+        self.recorder.go = False
+        self.recorder.join()
+
 class Recorder(Thread):
     """Thread in charge of recording the data to a file."""
     def __init__(self, outputFile):
