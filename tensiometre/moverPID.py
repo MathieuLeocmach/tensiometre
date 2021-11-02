@@ -100,7 +100,7 @@ class constant_deflection_XY(Thread):
             #save state to file asynchronously
             if self.recorder:
                 self.recorder.queue.append([pid.current_time-t0, x,y, *self.actuator.um2step(measureXY)])
-            newxy = np.minimum(self.actuator._NSTEP, np.maximum(0, newxy))
+            #newxy = np.minimum(self.actuator._NSTEP, np.maximum(0, newxy))
             newxy = self.actuator.truncate_steps(newxy)
             #update micromanipulator position
             if newxy[1] != y or newxy[0] != x:
@@ -350,7 +350,7 @@ class constant_deflection_XY_3sensors(Thread):
             #save state to file asynchronously
             if self.recorder:
                 self.recorder.queue.append([self.pids[0].current_time-t0, x, y, *self.actuator.um2step(measureXY), y_ag])
-            newxy = np.minimum(self.actuator._NSTEP, np.maximum(0, newxy))
+            #newxy = np.minimum(self.actuator._NSTEP, np.maximum(0, newxy))
             newxy = self.actuator.truncate_steps(newxy)
             #update micromanipulator position
             if newxy[1] != y or newxy[0] != x:
