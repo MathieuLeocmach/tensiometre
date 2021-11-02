@@ -13,6 +13,10 @@ class State:
         self.actuator_pos = actuator.step2um(np.array(list(self.actuator_pos)))
 
     @property
+    def deflection_real(self):
+        return np.array([self.deflection[0], self.deflection[1] + self.y_ag -self.actuator_pos[1]])
+
+    @property
     def arm_to_ground(self):
         return np.array([self.actuator_pos[0], self.y_ag])
 
@@ -106,7 +110,7 @@ def add_constant_deflection(ab2xy, outnames, dXs, dYs, durations, kp=0.9,ki = 0.
             state0 = State(sensors, actuator, ab2xy)
         #setting up PID, in microns
         pids = []
-        initialposition = state0.deflection
+        initialposition = state0.deflection_real
         for s, kp,ki,kd in zip(initialposition, kps,kis,kds):
             pid = PID(kp, ki, kd)
             pid.setPoint = s
@@ -114,7 +118,7 @@ def add_constant_deflection(ab2xy, outnames, dXs, dYs, durations, kp=0.9,ki = 0.
         try:
             for dX, dY, duration, outname in zip(dXs, dYs, durations, outnames):
                 for s, pid in zip(
-                    state0.deflection + np.array([dX, dY]),
+                    state0.deflection_real + np.array([dX, dY]),
                     pids
                 ):
                     pid.setPoint = s
