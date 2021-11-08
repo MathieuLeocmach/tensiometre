@@ -74,6 +74,7 @@ class PID:
 
         """
         error = self.setPoint - feedback_value
+        #print(f"error={error}")
 
         self.current_time = time.time()
         delta_time = self.current_time - self.last_time
@@ -81,6 +82,7 @@ class PID:
 
         if (delta_time >= self.sample_time):
             self.PTerm = self.Kp * error
+            #print(f"PTerm={self.PTerm}")
             self.ITerm += error * delta_time
 
             if (self.ITerm < -self.windup_guard):
@@ -127,4 +129,3 @@ class PID:
         Based on a pre-determined sampe time, the PID decides if it should compute or return immediately.
         """
         self.sample_time = sample_time
-
