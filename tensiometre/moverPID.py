@@ -340,7 +340,7 @@ class constant_deflection_XY_3sensors(Thread):
             #the new position of the micromanipulator in steps
             newx = x - self.actuator.um2integer_step(outputX)
             #PID on y works in microns
-            self.pids[1].update(measureXY[1] + y_ag-self.actuator.step2um(y))
+            self.pids[1].update(measureXY[1])
             outputy = self.pids[1].output
             #translate PID output in microns into
             #the new position of the micromanipulator in steps
