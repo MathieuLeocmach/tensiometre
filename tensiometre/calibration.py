@@ -98,6 +98,55 @@ def sampled_single_direction(direction='x', samples=None, repeat = 10):
     axs[1].set_title(direction+'b')
     return np.array(x2ab), fig
 
+def sampled_direction_z(samples=None, repeat = 10):
+    """To calibrate along z (resp y) the 3rd sensor, By default, test 11 dispacements sampled in log scale.
+    The resulting coefficients allows to convert micromanipulator coordinates to sensor measurements coordinates.
+    Returns coefficients and figure testing linearity."""
+    if samples is None:
+        samples = 2**np.arange(11)
+    measures = np.zeros((len(samples)))
+    with closing(DT3100('169.254.5.100')) as sensorC, closing(MPC385()) as actuator:
+        sensors = [sensorC]
+        for sensor in sensors:
+            sensor.set_averaging_type(3)
+            sensor.set_averaging_number(3)
+        #remember original positions of the sensors and actuator
+        x0, y0, z0 = actuator.update_current_position()[1:]
+        try:
+            initial = np.zeros(1)
+            for j in range(repeat):
+                initial += sensorC.readOne().m #why .m
+            initial /= repeat
+            #move along z
+            for i, sample in enumerate(samples):
+                    #manipulator going up
+                actuator.move_to(x0, y0 + sample, z0)
+                for j in range(repeat):
+                    m = sensorC.readOne().m
+                    if np.any(m==800) or np.any(m==0):
+                        raise ValueError('Sensor out of range')
+                    measures[i] += m
+        finally:
+            actuator.move_to(x0, y0, z0)
+    measures /= repeat
+    measures -= initial
+    np.save('calib_sensorC_' + '_' + datetime.now().strftime('%Y%m%d_%H%M_calib.npy'), measures)
+    #fit the results to get coefficients
+    func = lambda x,p: p * x
+    dxs = actuator.step2um(samples)
+    fig, axs = plt.subplots(1,1)
+    x2c = []
+    #for ax,m in zip(axs, (measures).T):
+    axs.plot(dxs, measures, 'o')
+    param = curve_fit(func, dxs, measures)[0][0]
+    print(param)
+    x2c.append(param)
+    axs.plot(dxs, func(dxs, param), ':')
+    axs.set_xlabel('z manip (µm)')
+    axs.set_ylabel('Sensor c (µm)')
+    axs.set_title('z_C')
+    return np.array(x2c), fig
+
 def sampled(samples=None, repeat = 10):
     """To calibrate, mechanically block the head of the cantilever from the right (looking to the micromanipulator), then from the bottom. By default, test 11 dispacements in each direction, sampled in log scale.
     The resulting matrix allows to convert sensor measurements into micromanipulator coordinates."""
@@ -192,7 +241,7 @@ def find_wall(direction='y', repeat = 10, precision=1, verbose=False, backup=Tru
                 elif direction == "y":
                     if verbose:
                         print("Looking between %d and %d in depth"%(y0-ubound, y0-lbound))
-                    actuator.move_to(x0, y0-midrange, z0)
+                    actuator.movadjustmente_to(x0, y0-midrange, z0)
                 moved = have_moved(initial, sensors, repeat, precision, settle_time)
                 if moved:
                     ubound = midrange
