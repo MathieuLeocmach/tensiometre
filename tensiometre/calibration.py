@@ -98,8 +98,9 @@ def sampled_single_direction(direction='x', samples=None, repeat = 10):
     axs[1].set_title(direction+'b')
     return np.array(x2ab), fig
 
-def sampled_direction_z(samples=None, repeat = 10):
+def sampled_direction(direction='y',samples=None, repeat = 10):
     """To calibrate along z (resp y) the 3rd sensor, By default, test 11 dispacements sampled in log scale.
+    Added the option for direction to check how movement in other direction affects the sensor reading
     The resulting coefficients allows to convert micromanipulator coordinates to sensor measurements coordinates.
     Returns coefficients and figure testing linearity."""
     if samples is None:
@@ -120,7 +121,12 @@ def sampled_direction_z(samples=None, repeat = 10):
             #move along z
             for i, sample in enumerate(samples):
                     #manipulator going up
-                actuator.move_to(x0, y0 + sample, z0)
+                if direction == "y":
+                    actuator.move_to(x0, y0 + sample, z0)
+                elif direction == "x":
+                    actuator.move_to(x0+ sample, y0, z0)
+                else:
+                    actuator.move_to(x0, y0, z0 + sample)
                 for j in range(repeat):
                     m = sensorC.readOne().m
                     if np.any(m==800) or np.any(m==0):
@@ -142,9 +148,9 @@ def sampled_direction_z(samples=None, repeat = 10):
     print(param)
     x2c.append(param)
     axs.plot(dxs, func(dxs, param), ':')
-    axs.set_xlabel('z manip (µm)')
+    axs.set_xlabel(direction + ' manip (µm)')
     axs.set_ylabel('Sensor c (µm)')
-    axs.set_title('z_C')
+    axs.set_title(direction + '_C')
     return np.array(x2c), fig
 
 def sampled(samples=None, repeat = 10):
