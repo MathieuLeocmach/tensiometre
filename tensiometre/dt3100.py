@@ -330,12 +330,12 @@ class DT3100:
 
     def start_aquisition(self):
         """Set the instrument to continuous acquisition mode."""
-        answer = self.inst.query('$MMD1')
-        if answer == '$MMD1OK':
-            self.mmd = 1
-            self._buffer = b''
-        else:
-            raise ValueError("Unable to parse instrument answer: %s"%answer)
+        self.sock.send(b'$MMD1\r')
+        ret = b''
+        while len(ret)<9 and self.wait_readable():
+            ret += self.sock.recv(9)
+        assert ret[:9] == b'$MMD1OK\r\n', "%s instead of $MMD1OK\r\n" % ret[:9]
+        self.mmd = 1
 
     def readN(self, N):
         """Read N distances"""
@@ -343,7 +343,7 @@ class DT3100:
             self.start_aquisition()
         buffer = b''
         while len(self._buffer)<3*N:
-            self._buffer += self.inst.read_raw(3*N-len(buffer))
+            self._buffer += self.sock.recv(3*N-len(buffer))
         buffer = self._buffer[:3*N]
         self._buffer = self._buffer[3*N:]
         return self.decode(buffer)
