@@ -40,9 +40,9 @@ def two_points(dx=100, dy=100, nsamples=1):
     xy2ab = ((np.array([abx, abz])-ab0).T/[dx,dy])
     return np.linalg.inv(xy2ab)
 
-def sampled_single_direction(direction='x', samples=None, repeat = 10):
+def sampled_single_direction(direction='x', samples=None, repeat = 10, axs=None):
     """To calibrate along x (resp y), mechanically block the head of the cantilever from the left (resp bottom). By default, test 11 dispacements sampled in log scale.
-    The resulting coefficients allows to convert micromanipulator coordinates to sensor measurements coordinates. Returns coefficients and figure testing linearity."""
+    The resulting coefficients allows to convert micromanipulator coordinates to sensor measurements coordinates. Returns coefficients."""
     if samples is None:
         samples = 2**np.arange(11)
     measures = np.zeros((len(samples), 2))
@@ -86,7 +86,8 @@ def sampled_single_direction(direction='x', samples=None, repeat = 10):
         dxs = actuator.step2um(samples)
     else:
         raise ValueError('direction should be x or y')
-    fig, axs = plt.subplots(1,2, sharex=True)
+    if axs is None:
+        fig, axs = plt.subplots(1,2, sharex=True)
     x2ab = []
     for ax,m in zip(axs.ravel(), (measures).T):
         ax.plot(dxs, m, 'o')
@@ -94,9 +95,13 @@ def sampled_single_direction(direction='x', samples=None, repeat = 10):
         print(param)
         x2ab.append(param)
         ax.plot(dxs, func(dxs, param), ':')
-    axs[0].set_title(direction+'a')
-    axs[1].set_title(direction+'b')
-    return np.array(x2ab), fig
+    #axs[0].set_title(direction+'a')
+    #axs[1].set_title(direction+'b')
+    axs[0].set_xlabel(direction)
+    axs[0].set_ylabel('a')
+    axs[1].set_xlabel(direction)
+    axs[1].set_ylabel('b')
+    return np.array(x2ab)
 
 def sampled_direction(direction='y',samples=None, repeat = 10):
     """To calibrate along z (resp y) the 3rd sensor, By default, test 11 dispacements sampled in log scale.
@@ -153,13 +158,15 @@ def sampled_direction(direction='y',samples=None, repeat = 10):
     axs.set_title(direction + '_C')
     return np.array(x2c), fig
 
-def sampled(samples=None, repeat = 10):
+def sampled(samples=None, repeat = 10, axs=None):
     """To calibrate, mechanically block the head of the cantilever from the right (looking to the micromanipulator), then from the bottom. By default, test 11 dispacements in each direction, sampled in log scale.
     The resulting matrix allows to convert sensor measurements into micromanipulator coordinates."""
+    if axs is None:
+        fig, axs = plt.subplots(2,2, sharex='column', sharey='row')
     input("Please block lateral direction")
-    x2ab = sampled_single_direction('x', samples, repeat)[0]
+    x2ab = sampled_single_direction('x', samples, repeat, axs=axs[:,0])
     input("Please block depth direction")
-    y2ab = sampled_single_direction('y', samples, repeat)[0]
+    y2ab = sampled_single_direction('y', samples, repeat, axs=axs[:,1])
     return np.linalg.inv(np.column_stack((x2ab, y2ab)))
 
 def sampled_auto(samples=None, repeat = 10, settle_time=1):
