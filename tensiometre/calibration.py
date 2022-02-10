@@ -3,8 +3,10 @@ import time
 from datetime import datetime
 import numpy as np
 from scipy.optimize import curve_fit
+from contextlib import closing, ExitStack
 from tensiometre.dt3100 import DT3100, ReadOne, read_both
 from tensiometre.mpc385 import MPC385
+from tensiometre.show_measurements import show_measurement
 from matplotlib import pyplot as plt
 
 def two_points(dx=100, dy=100, nsamples=1):
@@ -162,7 +164,7 @@ def sampled(samples=None, repeat = 10, axs=None):
     """To calibrate, mechanically block the head of the cantilever from the right (looking to the micromanipulator), then from the bottom. By default, test 11 dispacements in each direction, sampled in log scale.
     The resulting matrix allows to convert sensor measurements into micromanipulator coordinates."""
     if axs is None:
-        fig, axs = plt.subplots(2,2, sharex='column', sharey='row')
+        fig, axs = plt.subplots(2,2, sharex='col', sharey='row')
     input("Please block lateral direction")
     x2ab = sampled_single_direction('x', samples, repeat, axs=axs[:,0])
     input("Please block depth direction")
@@ -190,6 +192,27 @@ def sampled_auto(samples=None, repeat = 10, settle_time=1):
     with closing(MPC385()) as actuator:
         actuator.move_to(x0, y0, z0)
     return np.linalg.inv(np.column_stack((x2ab, y2ab)))
+
+def interactive(samples=None, repeat = 10, axs=None):
+    """To calibrate, mechanically block the head of the cantilever from the right (looking to the micromanipulator), then from the bottom. By default, test 11 dispacements in each direction, sampled in log scale.
+    The resulting matrix allows to convert sensor measurements into micromanipulator coordinates."""
+    if axs is None:
+        fig, axs = plt.subplots(2,2, sharex='col', sharey='row')
+    for direction, axss, dirname in zip('xy', axs.T, ['lateral', 'depth']):
+        while True:
+            print(f"Please block {dirname} direction. Close figure window when OK.")
+            with ExitStack() as stack:
+                sensors = [stack.enter_context(closing(DT3100(f'169.254.{3+i}.100'))) for i in range(2)]
+                show_measurement(sensors, 1, ymin=-80)
+            print(f"Performing measurments in {dirname} direction.")
+            for ax in axss:
+                ax.clear()
+            dir2ab = sampled_single_direction(dir, samples, repeat, axs=axss)
+            plt.show()
+            if(input('Are you happy with the results? (N)') in ['Y', 'y', 'yes', 'Yes', 'oui']):
+                xy2ab.append(dir2ab)
+                break
+    return np.linalg.inv(np.column_stack((xy2ab)))
 
 
 def have_moved(initial, sensors, repeat=10, precision=1, settle_time=None):
