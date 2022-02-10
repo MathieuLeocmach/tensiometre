@@ -2,6 +2,7 @@ import time
 import numpy as np
 from contextlib import closing
 from matplotlib import pyplot as plt
+import matplotlib.animation as animation
 from IPython import display
 from tensiometre.dt3100 import DT3100, ureg
 from threading import Thread
@@ -24,7 +25,7 @@ class Updater(Thread):
         self.chunk = chunk
         self.file = outputFile
         self.subsample = subsample
-                
+
     def run(self):
         shape = (self.chunk // self.subsample, self.subsample)
         leng = np.prod(shape)
@@ -35,41 +36,49 @@ class Updater(Thread):
             if self.file:
                 buff[-leng:].reshape(shape).mean(-1).tofile(self.file)
         self.capteur.end_acquisition()
-            
+
 class Shower:
     """A class to show a figure for a sensor"""
     def __init__(self, ringbuff, dt, ymin, ymax, name='DT3100', sleeptime=0.1):
         self.ringbuff = ringbuff
         ndisplayed = len(self.ringbuff)
         #create empty plot
-        self.fig = plt.figure(name)
+        self.fig, self.ax = fig, ax = plt.subplots(num=name)
         self.fig.clf()
-        plt.show()
+        #plt.show()
         self.hl, = plt.plot(dt * np.arange(ndisplayed), self.ringbuff)
         #set x and y range
         plt.xlim(0, dt.m * ndisplayed)
         plt.xlabel('time (%s)' % dt.u)
         plt.ylim(ymin, ymax)
-        plt.ylabel('distance (um)')
+        plt.ylabel('distance (µm)')
         self.st = sleeptime
+        def animate(i):
+            self.hl.set_ydata(self.ringbuff)  # update the data.
+            return self.hl,
+        self.ani = animation.FuncAnimation(
+                self.fig, animate, interval=self.st*1000, blit=True, save_count=1, repeat=True)
+        #plt.show()
         #self.go = True
-        
-    def __call__(self):
-        #if not plt.fignum_exists(self.fig.number):
-        #    self.go = False
-        #    return
-        self.hl.set_ydata(self.ringbuff)
-        #If the graph is displayed inline in the notebook, 
-        #updating procedure is different
-        if plt.get_backend()[-6:] == 'inline':
-            display.clear_output(wait=True)
-            display.display(self.fig)
-            time.sleep(self.st)
-        else:
-            plt.draw()
-            plt.pause(self.st)
-            
-def show_measurement(capteur, ndisplayed = 2**13, chunk = None, ymin=None, ymax=None):
+
+
+
+    # def __call__(self):
+    #     #if not plt.fignum_exists(self.fig.number):
+    #     #    self.go = False
+    #     #    return
+    #     self.hl.set_ydata(self.ringbuff)
+    #     #If the graph is displayed inline in the notebook,
+    #     #updating procedure is different
+    #     if plt.get_backend()[-6:] == 'inline':
+    #         display.clear_output(wait=True)
+    #         display.display(self.fig)
+    #         time.sleep(self.st)
+    #     else:
+    #         plt.draw()
+    #         plt.pause(self.st)
+
+def show_measurement(sensors, ndisplayed = 2**13, chunk = None, ymin=None, ymax=None):
     """Display measurements in a rolling graph"""
     if chunk is None:
         chunk = 2**int(np.log2(ndisplayed/32))
@@ -82,17 +91,22 @@ def show_measurement(capteur, ndisplayed = 2**13, chunk = None, ymin=None, ymax=
         ymin = capteur.sensor.smr.m
     if ymax is None:
         ymax = capteur.sensor.emr.m
+
+
+
     shw = Shower(
-        ringbuff, dt, ymin, ymax, 
-        #name='DT3100-%d'%capteur.sensor.sn, 
+        ringbuff, dt, ymin, ymax,
+        #name='DT3100-%d'%capteur.sensor.sn,
         #sleeptime=0.1
     )
     updt = Updater(ringbuff, capteur, chunk)
     updt.start()
+    plt.show()
     try:
         while updt.is_alive():
-            shw()
-            
+            #shw()
+            pass
+
     except KeyboardInterrupt:
         pass
     finally:
@@ -102,14 +116,14 @@ def show_measurement(capteur, ndisplayed = 2**13, chunk = None, ymin=None, ymax=
 
 if __name__ == '__main__':
     import argparse
-    parser = argparse.ArgumentParser(description='Display measurements from a DT3100 sensor in a rolling graph (In Notebook only).')
+    parser = argparse.ArgumentParser(description='Display measurements from a DT3100 sensor in a rolling graph.')
     parser.add_argument('ip', nargs='?', default='169.254.3.100', help='IP address of the DT3100.')
     parser.add_argument(
-        '--avt', default=0, type=int, 
+        '--avt', default=0, type=int,
         help=DT3100.set_averaging_type.__doc__
     )
     parser.add_argument(
-        '--avn', default=0, type=int, 
+        '--avn', default=0, type=int,
         help=DT3100.set_averaging_number.__doc__
     )
     parser.add_argument('--ymin', default=None, type=float, help='minimum distance')
