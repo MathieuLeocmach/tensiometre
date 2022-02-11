@@ -13,8 +13,8 @@ import matplotlib as mpl
 #mpl.use('tkagg')
 
 #print(plt.get_backend())
-fig, axs = plt.subplots(2,2, sharex='column', sharey='row')
-ab2xy= calibration.sampled(samples = 16*10*np.arange(21), axs=axs);
+fig, axs = plt.subplots(2,2, sharex='col', sharey='row')
+ab2xy= calibration.interactive(samples = 16*10*np.arange(21), axs=axs);
 name = datetime.now().strftime('%Y%m%d_%H%M_calib')
 np.save(name+'.npy', ab2xy)
 plt.savefig(name+'.pdf')

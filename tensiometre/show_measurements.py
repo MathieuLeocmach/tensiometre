@@ -45,6 +45,7 @@ class Shower:
         self.ringbuffs = ringbuffs
         self.dts = dts
         self.st = sleeptime
+        #plt.ion()
         #create empty plot
         self.fig, self.ax = fig, ax = plt.subplots(num=name)
         self.fig.clf()
@@ -64,7 +65,7 @@ class Shower:
             return self.hl
         self.ani = animation.FuncAnimation(
                 self.fig, animate, interval=self.st*1000, blit=True, save_count=1, repeat=True)
-        #plt.show()
+        plt.show(block=False)
         #self.go = True
 
 
@@ -113,12 +114,14 @@ def show_measurement(sensors, tw=1, ymin=None, ymax=None, names=None):
         #name='DT3100-%d'%capteur.sensor.sn,
         #sleeptime=0.1
     )
-    plt.show()
-    fig = plt.gcf()
+    fig = shw.fig
     #fig.axes[0].has_been_closed = False
     #fig.canvas.mpl_connect('close_event', on_close)
+    plt.show()#(block=True)
+    #plt.pause(0.01)
     try:
-        while min(updt.is_alive() for upt in updts):
+        while min(updt.is_alive() and updt.go for upt in updts):
+            #pass
             active_fig_managers = plt._pylab_helpers.Gcf.figs.values()
             if fig not in active_fig_managers:
                 break

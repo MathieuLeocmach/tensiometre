@@ -198,6 +198,10 @@ def interactive(samples=None, repeat = 10, axs=None):
     The resulting matrix allows to convert sensor measurements into micromanipulator coordinates."""
     if axs is None:
         fig, axs = plt.subplots(2,2, sharex='col', sharey='row')
+    else:
+        fig = axs[0,0].figure
+    plt.close(fig)
+    xy2ab = []
     for direction, axss, dirname in zip('xy', axs.T, ['lateral', 'depth']):
         while True:
             print(f"Please block {dirname} direction. Close figure window when OK.")
@@ -207,11 +211,16 @@ def interactive(samples=None, repeat = 10, axs=None):
             print(f"Performing measurments in {dirname} direction.")
             for ax in axss:
                 ax.clear()
-            dir2ab = sampled_single_direction(dir, samples, repeat, axs=axss)
-            plt.show()
+            dir2ab = sampled_single_direction(direction, samples, repeat, axs=axss)
+            dummy = plt.figure()
+            new_manager = dummy.canvas.manager
+            new_manager.canvas.figure = fig
+            fig.set_canvas(new_manager.canvas)
+            plt.show(block=False)
             if(input('Are you happy with the results? (N)') in ['Y', 'y', 'yes', 'Yes', 'oui']):
                 xy2ab.append(dir2ab)
                 break
+            plt.close(dummy)
     return np.linalg.inv(np.column_stack((xy2ab)))
 
 
