@@ -4,7 +4,7 @@ from datetime import datetime
 import numpy as np
 from scipy.optimize import curve_fit
 from contextlib import closing, ExitStack
-from tensiometre.dt3100 import DT3100, ReadOne, read_both
+from tensiometre.dt3100 import DT3100, ReadOne, read_both, recover
 from tensiometre.mpc385 import MPC385
 from tensiometre.show_measurements import show_measurement
 from matplotlib import pyplot as plt
@@ -204,9 +204,11 @@ def interactive(samples=None, repeat = 10, axs=None):
     xy2ab = []
     for direction, axss, dirname in zip('xy', axs.T, ['lateral', 'depth']):
         while True:
+            for i in range(3):
+                recover(f'169.254.{3+i}.100')
             print(f"Please block {dirname} direction. Close figure window when OK.")
             with ExitStack() as stack:
-                sensors = [stack.enter_context(closing(DT3100(f'169.254.{3+i}.100'))) for i in range(2)]
+                sensors = [stack.enter_context(closing(DT3100(f'169.254.{3+i}.100'))) for i in range(3)]
                 show_measurement(sensors, 1, ymin=-80)
             print(f"Performing measurments in {dirname} direction.")
             for ax in axss:
