@@ -99,7 +99,7 @@ class constant_deflection_XY(Thread):
             newxy = (np.array([x,y]) - self.actuator.um2integer_step(outputs)).astype(int)
             #save state to file asynchronously
             if self.recorder:
-                self.recorder.queue.append([pid.current_time-t0, x,y, *self.actuator.um2step(measureXY)])
+                self.recorder.queue.append([pid.current_time-t0, *self.actuator.step2um(np.array([x,y])), *measureXY])
             #newxy = np.minimum(self.actuator._NSTEP, np.maximum(0, newxy))
             newxy = self.actuator.truncate_steps(newxy)
             #update micromanipulator position
@@ -142,7 +142,7 @@ class constant_position_XY(Thread):
             outputs = np.array(outputs)
             #save state to file asynchronously
             if self.recorder:
-                self.recorder.queue.append([pid.current_time-t0, x, y, *self.actuator.um2step(measureXY)])
+                self.recorder.queue.append([pid.current_time-t0, *self.actuator.step2um(np.array([x,y])), *measureXY])
             #the new position of the micromanipulator in steps
             newxy = self.actuator.um2integer_step(outputs) + [x,y]
             newxy = self.actuator.truncate_steps(newxy)
@@ -194,7 +194,7 @@ class constant_deflectionX_positionY(Thread):
             newy = y + self.actuator.um2integer_step(outputy)
             #save state to file asynchronously
             if self.recorder:
-                self.recorder.queue.append([self.pids[0].current_time-t0, x, y, *self.actuator.um2step(measureXY)])
+                self.recorder.queue.append([self.pids[0].current_time-t0, *self.actuator.step2um(np.array([x,y])), *measureXY])
             newxy = np.array((newx,newy))
             newxy = self.actuator.truncate_steps(newxy)
 
@@ -240,7 +240,7 @@ The y position is obtained from a third sensor between the arm and the tank (gro
             outputs = np.array([pid.output for pid in self.pids])
             #save state to file asynchronously
             if self.recorder:
-                self.recorder.queue.append([self.pids[0].current_time-t0, x, y, *self.actuator.um2step(measureXY), y_ag])
+                self.recorder.queue.append([self.pids[0].current_time-t0, *self.actuator.step2um(np.array([x,y])), *measureXY, y_ag])
             #the new position of the micromanipulator in steps
             newxy = self.actuator.um2integer_step(outputs) + [x,y]
             newxy = self.actuator.truncate_steps(newxy)
@@ -297,7 +297,7 @@ The y position is obtained from a third sensor between the arm and the tank (gro
             newy = y + self.actuator.um2integer_step(outputy)
             #save state to file asynchronously
             if self.recorder:
-                self.recorder.queue.append([self.pids[0].current_time-t0, x, y, *self.actuator.um2step(measureXY), y_ag])
+                self.recorder.queue.append([self.pids[0].current_time-t0, *self.actuator.step2um(np.array([x,y])), *measureXY, y_ag])
             newxy = np.array((newx,newy))
             newxy = self.actuator.truncate_steps(newxy)
 
