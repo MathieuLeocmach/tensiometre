@@ -440,6 +440,16 @@ def read_both(sensorA, sensorB):
     readerB.join()
     return readerA.value.m, readerB.value.m
 
+def read_all(sensors):
+    """Read several sensors asynchronously"""
+    readers = [ReadOne(sensor) for sensor in sensors]
+    for reader in readers:
+        reader.start()
+    #do other things
+    for reader in readers:
+        reader.join()
+    return np.array([reader.value.m for reader in readers])
+
 class ReadDuration(Thread):
     """Read asynchronously a sensor to a stream during a fixed amount of time."""
     def __init__(self, sensor, stream, duration):
