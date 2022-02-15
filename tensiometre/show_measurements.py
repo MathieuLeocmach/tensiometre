@@ -30,7 +30,7 @@ class Updater(Thread):
         shape = (self.chunk // self.subsample, self.subsample)
         leng = np.prod(shape)
         while not self.stop.is_set():
-            buff = self.sensor.readN(self.chunk)
+            buff = self.sensor.readN(self.chunk).m
             self.ringbuff[:] = np.roll(self.ringbuff, -self.chunk)
             self.ringbuff[-self.chunk:] = buff
             if self.file:
@@ -56,7 +56,7 @@ class Shower:
         plt.ylabel('distance (µm)')
         self.hl = []
         for ringbuff, dt, label in zip(self.ringbuffs, self.dts, names):
-            self.hl.append(plt.plot(dt * np.arange(len(ringbuff)), ringbuff, label=label)[0])
+            self.hl.append(plt.plot(dt.m * np.arange(len(ringbuff)), ringbuff, label=label)[0])
         plt.legend()
 
         def animate(i):
