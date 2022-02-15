@@ -6,10 +6,6 @@ import matplotlib.animation as animation
 def read_data(outname):
     data = np.fromfile(outname)
     t, x,y,X,Y,y_ag = data.reshape((len(data)//6,6)).T
-    x /=16
-    y /=16
-    X /=16
-    Y /=16
     return t, x,y,X,Y,y_ag
 
 
@@ -18,7 +14,7 @@ if __name__ == '__main__':
     parser.add_argument('measfilename', type= str, help = """path and name of the measurement file. Expects a binary file containing:
     time, x_arm/ground, y_arm/ground, X_head/arm, Y_head/arm, y_arm/ground""")
     parser.add_argument('calibrationfilename', type=str, help='path and name of the ab2xy calibration file. Expects a .npy.')
-    parser.add_argument('--freq', type=float, default=20, help='refresh frequency in frames per second.')
+    parser.add_argument('--freq', type=float, default=20, help='refresh frequency in frames per second. If zero of negative, do not animate.')
 
     args = parser.parse_args()
     ab2xy = np.load(args.calibrationfilename)
@@ -68,9 +64,9 @@ if __name__ == '__main__':
             line.set_xdata(t)
         axs['A'].set_xlim(axs['A'].get_xlim()[0], t[-1])
         return [xhg, yhg, xha, yha]+lines
-
-    ani = animation.FuncAnimation(
-        fig, animate, interval=1000/args.freq, blit=False, save_count=1, repeat=True
+    if args.freq>0:
+        ani = animation.FuncAnimation(
+            fig, animate, interval=1000/args.freq, blit=False, save_count=1, repeat=True
         )
 
     fig.savefig(os.path.splitext(args.measfilename)[0]+'.pdf')
