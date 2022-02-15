@@ -133,6 +133,8 @@ def show_measurement(sensors, tw=1, ymin=None, ymax=None, names=None):
             updt.go = False
         for updt in updts:
             updt.join()
+        for sensor in sensors:
+            sensor.end_acquisition()
 
 
 if __name__ == '__main__':
