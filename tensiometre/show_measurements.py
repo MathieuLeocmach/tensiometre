@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 import matplotlib.animation as animation
 from IPython import display
 from tensiometre.dt3100 import DT3100, ureg, recover
-from threading import Thread
+from threading import Thread, Event
 
 #physical units
 #from pint import UnitRegistry
@@ -17,10 +17,10 @@ ureg.default_format = '~P'
 
 class Updater(Thread):
     """A thread to update continuously a ring buffer for sensor's data"""
-    def __init__(self, ringbuff, capteur, chunk=32, outputFile=False, subsample=1):
+    def __init__(self, ringbuff, sensor, chunk=32, outputFile=False, subsample=1):
         Thread.__init__(self)
-        self.go = True
-        self.capteur = capteur
+        self.stop = Event()
+        self.sensor = sensor
         self.ringbuff = ringbuff
         self.chunk = chunk
         self.file = outputFile
@@ -29,13 +29,13 @@ class Updater(Thread):
     def run(self):
         shape = (self.chunk // self.subsample, self.subsample)
         leng = np.prod(shape)
-        while self.go:
-            buff = self.capteur.readN(self.chunk)
+        while not self.stop.is_set():
+            buff = self.sensor.readN(self.chunk)
             self.ringbuff[:] = np.roll(self.ringbuff, -self.chunk)
             self.ringbuff[-self.chunk:] = buff
             if self.file:
                 buff[-leng:].reshape(shape).mean(-1).tofile(self.file)
-        self.capteur.end_acquisition()
+        self.sensor.end_acquisition()
 
 class Shower:
     """A class to show a figure for a sensor"""
@@ -120,7 +120,7 @@ def show_measurement(sensors, tw=1, ymin=None, ymax=None, names=None):
     plt.show()#(block=True)
     #plt.pause(0.01)
     try:
-        while min(updt.is_alive() and updt.go for upt in updts):
+        while min(updt.is_alive() and not updt.stop.is_set() for upt in updts):
             #pass
             active_fig_managers = plt._pylab_helpers.Gcf.figs.values()
             if fig not in active_fig_managers:
@@ -130,7 +130,7 @@ def show_measurement(sensors, tw=1, ymin=None, ymax=None, names=None):
         pass
     finally:
         for updt in updts:
-            updt.go = False
+            updt.stop.set()
         for updt in updts:
             updt.join()
         for sensor in sensors:
