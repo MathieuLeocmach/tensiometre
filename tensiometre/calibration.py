@@ -209,6 +209,9 @@ def interactive(samples=None, repeat = 10, axs=None):
             print(f"Please block {dirname} direction. Close figure window when OK.")
             with ExitStack() as stack:
                 sensors = [stack.enter_context(closing(DT3100(f'169.254.{3+i}.100'))) for i in range(3)]
+                for sensor in sensors:
+                    sensor.set_averaging_type(3)
+                    sensor.set_averaging_number(3)
                 show_measurement(sensors, 1, ymin=-80)
             print(f"Performing measurments in {dirname} direction.")
             for ax in axss:
