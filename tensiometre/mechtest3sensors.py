@@ -8,9 +8,28 @@ from tensiometre import moverPID
 
 class State:
     """A state of the tensiometer, containing both actuator position and deflection. All in microns."""
-    def __init__(self, sensors, actuator, ab2xy):
-        self.actuator_pos, self.deflection, self.y_ag = moverPID.current_positions(ab2xy, sensors, actuator)
-        self.actuator_pos = actuator.step2um(np.array(list(self.actuator_pos)))
+    def __init__(self):
+        self.actuator_pos = np.zeros(3)
+        self.deflection = np.zeros(2)
+        self.y_ag = 0
+
+    def read(self, sensors, actuator, ab2xy):
+        """Read the current state from sensors and actuator"""
+        self.actuator_pos[:], self.deflection[:], self.y_ag = moverPID.current_positions(ab2xy, sensors, actuator)
+        self.actuator_pos[:] = actuator.step2um(self.actuator_pos)
+        return self
+
+    def load(self, filename):
+        """Load state from a file"""
+        a = np.load(filename)
+        self.actuator_pos[:] = a[:3]
+        self.deflection[:] = a[3:5]
+        self.y_ag = a[5]
+        return self
+
+    def save(self, filename):
+        """Save state to a file"""
+        np.save(filename, np.concatenate((self.actuator_pos, self.deflection, [self.y_ag])))
 
     @property
     def arm_to_ground(self):
@@ -45,7 +64,7 @@ def move_to_constant_positions(ab2xy, outnames, dxs, dys, durations, kp=0.9,ki =
             sensor.set_averaging_number(3)
         if state0 is None:
             #remember original positions of the sensors and actuator
-            state0 = State(sensors, actuator, ab2xy)
+            state0 = State().read(sensors, actuator, ab2xy)
         #setting up PID, in microns
         pids = []
         initialposition = state0.head_to_ground
@@ -103,7 +122,7 @@ def add_constant_deflection(ab2xy, outnames, dXs, dYs, durations, kp=0.9,ki = 0.
             sensor.set_averaging_number(3)
         if state0 is None:
             #remember original positions of the sensors and actuator
-            state0 = State(sensors, actuator, ab2xy)
+            state0 = State().read(sensors, actuator, ab2xy)
         #setting up PID, in microns
         pids = []
         initialposition = state0.deflection
@@ -165,7 +184,7 @@ def add_constant_deflectionX_move_to_constant_positiony(ab2xy, outnames, dXs, dy
             sensor.set_averaging_number(3)
         if state0 is None:
             #remember original positions of the sensors and actuator
-            state0 = State(sensors, actuator, ab2xy)
+            state0 = State().read(sensors, actuator, ab2xy)
         #setting up PID
         pids = []
         for s,kp,ki,kd in zip([state0.deflection[0], state0.head_to_ground[1]],kps,kis,kds):
