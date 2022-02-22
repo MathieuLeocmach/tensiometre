@@ -261,3 +261,63 @@ def stay_constant_position(outname, ab2xy, kp=0.9, ki = 0.0, kd = 0.0, duration=
         outname, ab2xy, kp,ki,kd, dy=0, dx=0, duration=duration,
         moveback=False, state0=state0
         )
+
+
+def oscillating_position(ab2xy, outname, amplitudex, amplitudey=0, freqx=10, freqy=0, duration=None, kp=0.9,ki = 0.0, kd =0.0,  moveback=False, state0=None):
+    """Moving the absolute position of the head by dy (depth) and dx (width)
+    and stay at that position using PID feedback.
+    Need ab2xy calibration matrix.
+    Duration is in seconds. If None specified, continues until stopped."""
+    if not hasattr(kp, "__len__"):
+        kps = [kp, kp]
+    else:
+        kps = kp
+    if not hasattr(ki, "__len__"):
+        kis = [ki,ki]
+    else:
+        kis = ki
+    if not hasattr(kd, "__len__"):
+        kds = [kd,kd]
+    else:
+        kds = kd
+    assert len(kps) == 2
+    assert len(kis) == 2
+    assert len(kds) == 2
+    with ExitStack() as stack:
+        sensors = [stack.enter_context(closing(DT3100(f'169.254.{3+i}.100'))) for i in range(3)]
+        actuator = stack.enter_context(closing(MPC385()))
+        #setting up sensors
+        for sensor in sensors:
+            sensor.set_averaging_type(3)
+            sensor.set_averaging_number(3)
+        if state0 is None:
+            #remember original positions of the sensors and actuator
+            state0 = State().read(sensors, actuator, ab2xy)
+        #setting up PID, in microns
+        pids = []
+        initialposition = state0.head_to_ground
+        for s, kp,ki,kd in zip(initialposition, kps,kis,kds):
+            pid = PID(kp, ki, kd)
+            pid.setPoint = s
+            pids.append(pid)
+        try:
+            with open(outname, "wb") as fout:
+                m = moverPID.constant_position_XY_3sensors(sensors, actuator, ab2xy, pids, outputFile=fout)
+                t0 = time.time()
+                m.start()
+                try:
+                    while (duration is None) or (time.time() < t0 + duration):
+                        t = time.time()
+                        for pid, p0, amplitude, freq in zip(pids, initialposition, [amplitudex, amplitudey], [freqx, freqy]):
+                            pid.setPoint = p0 + amplitude * np.sin(2*np.pi*freq*(t-t0))
+
+                except KeyboardInterrupt:
+                    pass
+                finally:
+                    #stop PID thread
+                    m.go = False
+                    m.join()
+        finally:
+            if moveback:
+                #move the actuator back to its original position
+                actuator.move_to(*actuator.um2integer_step(state0.actuator_pos))
