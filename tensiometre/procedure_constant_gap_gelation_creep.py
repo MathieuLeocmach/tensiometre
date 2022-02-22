@@ -27,46 +27,45 @@ if __name__ == '__main__':
     with closing(MPC385()) as actuator:
         print(actuator.update_current_position())
 
-    print(f"Please move to just touching the bottom. Close figure window when OK.")
-    with ExitStack() as stack:
-        sensors = [stack.enter_context(closing(DT3100(f'169.254.{3+i}.100'))) for i in range(3)]
-        for sensor in sensors:
-            sensor.set_averaging_type(3)
-            sensor.set_averaging_number(3)
-        show_measurement(sensors, 1, ymin=-80)
-        mpc = stack.enter_context(closing(MPC385()))
-        touching_state = mechtest3sensors.State().read(sensors, mpc, ab2xy)
-        touching_state.save('touching.npy')
+    input(f"Please move to just touching the bottom. Enter when OK.")
+    touching_state = measure_state()
+    now = datetime.now().strftime('%Y%m%d_%H%M')
+    touching_state.save(f'touching_{now}.npy')
 
-    print("Lifting up by 100 µm to setup the initial gap size. Maintain 60s to ensure steady state.")
+    now = datetime.now().strftime('%Y%m%d_%H%M')
+    print(f"{now}: Lifting up by 100 µm to setup the initial gap size. Maintain 60s to ensure steady state.")
     mechtest3sensors.move_to_constant_positions(
         ab2xy,
-        outnames = ['positon_from_bottom_100um.raw'],
+        outnames = [f'positon_from_bottom_100um_{now}.raw'],
         dxs=[0], dys=[100],
         durations=[60],
         kp=0.1,
         state0=touching_state
         )
     force_free = measure_state()
-    force_free.save('force_free.npy')
+    now = datetime.now().strftime('%Y%m%d_%H%M')
+    force_free.save(f'force_free_{now}.npy')
     print(f"position wrt touching: {force_free.head_to_ground - touching_state.head_to_ground}")
     print(f"deflection wrt touching: {force_free.deflection - touching_state.deflection}")
 
-    print("Maintain the gap size for 1h.")
+    now = datetime.now().strftime('%Y%m%d_%H%M')
+    print(f"{now}: Maintain the gap size for 1h.")
     mechtest3sensors.move_to_constant_positions(
         ab2xy,
-        outnames = ['maintain_gap_100um.raw'],
+        outnames = [f'maintain_gap_100um_{now}.raw'],
         dxs=[0], dys=[100],
         durations=[3600],
         kp=0.01, ki=1e-5,
         state0=touching_state
         )
     after_gelation = measure_state()
-    after_gelation.save('after_gelation.npy')
+    now = datetime.now().strftime('%Y%m%d_%H%M')
+    after_gelation.save(f'after_gelation_{now}.npy')
     print(f"position: {after_gelation.head_to_ground - touching_state.head_to_ground}")
     print(f"deflection wrt force free: {after_gelation.deflection - force_free.deflection}")
 
-    print("Estimate shear modulus of the gel by step strains<3µm. Repated 3 times.")
+    now = datetime.now().strftime('%Y%m%d_%H%M')
+    print(f"{now}: Estimate shear modulus of the gel by step strains<3µm. Repated 3 times.")
     for k in range(1,4):
         dxs = np.arange(0,10,3).astype(float)
         dxs = np.append(dxs, 0.0)
@@ -106,16 +105,18 @@ if __name__ == '__main__':
 
     # Again check the change w.r.t the inital set position(Xinit,Yinit) and initial zero stress deflection
     after_linear_rheology = measure_state()
-    after_linear_rheology.save('after_linear_rheology.npy')
+    now = datetime.now().strftime('%Y%m%d_%H%M')
+    after_linear_rheology.save(f'after_linear_rheology_{now}.npy')
     print(f"position: {after_linear_rheology.head_to_ground - touching_state.head_to_ground}")
     print(f"deflection wrt force free: {after_linear_rheology.deflection - force_free.deflection}")
 
-    print('Apply the constant stress')
+    now = datetime.now().strftime('%Y%m%d_%H%M')
+    print(f"{now}: Apply the constant stress")
     h = (before_creep.head_to_ground - touching_state.head_to_ground)[1]
     defl = args.stress*module*h # calculated from the linear rheology
     print(f'The applied deflection will be {defl:0.3f} um')
     now = datetime.now().strftime('%Y%m%d_%H%M')
-    outname = f'{now}_add_constant_deflectionX{defl:0.3f}_stay_constant_positiony.raw'
+    utname = f'add_constant_deflectionX{defl:0.3f}_stay_constant_positiony_{now}.raw'
     mechtest3sensors.add_constant_deflectionX_stay_constant_positiony(
         outname,
         ab2xy,
@@ -124,6 +125,7 @@ if __name__ == '__main__':
         moveback= True, state0 = force_free, maxYdispl = 300
     )
     after_creep = measure_state()
-    after_creep.save('after_creep.npy')
+    now = datetime.now().strftime('%Y%m%d_%H%M')
+    after_creep.save(f'after_creep_{now}.npy')
     print(f"position: {after_creep.head_to_ground - touching_state.head_to_ground}")
     print(f"deflection wrt force free: {after_creep.deflection - force_free.deflection}")
