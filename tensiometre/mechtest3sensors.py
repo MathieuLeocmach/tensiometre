@@ -47,11 +47,15 @@ def move_to_constant_positions(ab2xy, outnames, dxs, dys, durations, kp=0.9,ki =
     Duration is in seconds. If None specified, continues until stopped."""
     if not hasattr(kp, "__len__"):
         kps = [kp, kp]
-        kis = [ki,ki]
-        kds = [kd,kd]
     else:
         kps = kp
+    if not hasattr(ki, "__len__"):
+        kis = [ki,ki]
+    else:
         kis = ki
+    if not hasattr(kd, "__len__"):
+        kds = [kd,kd]
+    else:
         kds = kd
     assert len(kps) == 2
     assert len(kis) == 2
@@ -106,11 +110,15 @@ def add_constant_deflection(ab2xy, outnames, dXs, dYs, durations, kp=0.9,ki = 0.
     #remember original positions of the sensors and actuator
     if not hasattr(kp, "__len__"):
         kps = [kp, kp]
-        kis = [ki,ki]
-        kds = [kd,kd]
     else:
         kps = kp
+    if not hasattr(ki, "__len__"):
+        kis = [ki,ki]
+    else:
         kis = ki
+    if not hasattr(kd, "__len__"):
+        kds = [kd,kd]
+    else:
         kds = kd
     assert len(kps)==2
     assert len(kis)==2
@@ -170,11 +178,15 @@ def add_constant_deflectionX_move_to_constant_positiony(ab2xy, outnames, dXs, dy
     Duration is in seconds. If None specified, continues until stopped."""
     if not hasattr(kp, "__len__"):
         kps = [kp, kp]
-        kis = [ki,ki]
-        kds = [kd,kd]
     else:
         kps = kp
+    if not hasattr(ki, "__len__"):
+        kis = [ki,ki]
+    else:
         kis = ki
+    if not hasattr(kd, "__len__"):
+        kds = [kd,kd]
+    else:
         kds = kd
 
     #remember original positions of the sensors and actuator
