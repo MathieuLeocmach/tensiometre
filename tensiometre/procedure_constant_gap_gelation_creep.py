@@ -49,15 +49,23 @@ if __name__ == '__main__':
     print(f"deflection wrt touching: {force_free.deflection - touching_state.deflection}")
 
     now = datetime.now().strftime('%Y%m%d_%H%M')
-    print(f"{now}: Maintain the gap size for 1h.")
-    mechtest3sensors.move_to_constant_positions(
+    print(f"{now}: Maintain the gap size for 1h while oscillating in shear 2µm 0.1Hz.")
+    mechtest3sensors.oscillating_position(
         ab2xy,
-        outnames = [f'maintain_gap_100um_{now}.raw'],
-        dxs=[0], dys=[100],
-        durations=[3600],
-        kp=0.01, ki=1e-5,
-        state0=touching_state
-        )
+        f'maintain_gap_100um_oscillateX_{now}.raw',
+        amplitudex = 2, amplitudey=0, freqx=0.1, freqy=0,
+        duration=3600, kp=[0.1,0.01], ki=[0,1e-5],
+        moveback=False, state0=force_free
+    )
+    # print(f"{now}: Maintain the gap size for 1h.")
+    # mechtest3sensors.move_to_constant_positions(
+    #     ab2xy,
+    #     outnames = [f'maintain_gap_100um_{now}.raw'],
+    #     dxs=[0], dys=[100],
+    #     durations=[3600],
+    #     kp=0.01, ki=1e-5,
+    #     state0=touching_state
+    #     )
     after_gelation = measure_state()
     now = datetime.now().strftime('%Y%m%d_%H%M')
     after_gelation.save(f'after_gelation_{now}.npy')
