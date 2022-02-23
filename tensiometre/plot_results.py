@@ -2,6 +2,7 @@ import argparse, os.path
 import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib.animation as animation
+from matplotlib.widgets import Button
 
 def read_data(outname):
     data = np.fromfile(outname)
@@ -68,6 +69,10 @@ if __name__ == '__main__':
         ani = animation.FuncAnimation(
             fig, animate, interval=1000/args.freq, blit=False, save_count=1, repeat=True
         )
+        #Stop button
+        axstop = plt.axes([0.8, 0.1, 0.1, 0.05])
+        bstop = Button(axstop, 'Stop')
+        bstop.on_clicked(lambda event: ani.event_source.stop())
 
     fig.savefig(os.path.splitext(args.measfilename)[0]+'.pdf')
     plt.show()
