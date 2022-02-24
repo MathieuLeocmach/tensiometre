@@ -263,9 +263,9 @@ def stay_constant_position(outname, ab2xy, kp=0.9, ki = 0.0, kd = 0.0, duration=
         )
 
 
-def oscillating_position(ab2xy, outname, amplitudex, amplitudey=0, freqx=10, freqy=0, duration=None, kp=0.9,ki = 0.0, kd =0.0,  moveback=False, state0=None):
-    """Moving the absolute position of the head by dy (depth) and dx (width)
-    and stay at that position using PID feedback.
+def timedep_position(ab2xy, outname, functions, duration=None, kp=0.9,ki = 0.0, kd =0.0,  moveback=False, state0=None):
+    """Moving the absolute position of the head in depth and width following two
+    time-dependent functions around state0.
     Need ab2xy calibration matrix.
     Duration is in seconds. If None specified, continues until stopped."""
     if not hasattr(kp, "__len__"):
@@ -283,6 +283,7 @@ def oscillating_position(ab2xy, outname, amplitudex, amplitudey=0, freqx=10, fre
     assert len(kps) == 2
     assert len(kis) == 2
     assert len(kds) == 2
+    assert len(functions) == 2
     with ExitStack() as stack:
         sensors = [stack.enter_context(closing(DT3100(f'169.254.{3+i}.100'))) for i in range(3)]
         actuator = stack.enter_context(closing(MPC385()))
@@ -306,10 +307,10 @@ def oscillating_position(ab2xy, outname, amplitudex, amplitudey=0, freqx=10, fre
                 t0 = time.time()
                 m.start()
                 try:
-                    while (duration is None) or (time.time() < t0 + duration):
-                        t = time.time()
-                        for pid, p0, amplitude, freq in zip(pids, initialposition, [amplitudex, amplitudey], [freqx, freqy]):
-                            pid.setPoint = p0 + amplitude * np.sin(2*np.pi*freq*(t-t0))
+                    t = time.time() - t0
+                    while (duration is None) or (t < duration):
+                        for pid, p0, function in zip(pids, initialposition, functions):
+                            pid.setPoint = p0 + function(t)
 
                 except KeyboardInterrupt:
                     pass
@@ -321,3 +322,14 @@ def oscillating_position(ab2xy, outname, amplitudex, amplitudey=0, freqx=10, fre
             if moveback:
                 #move the actuator back to its original position
                 actuator.move_to(*actuator.um2integer_step(state0.actuator_pos))
+
+def oscillating_position(ab2xy, outname, amplitudex, amplitudey=0, freqx=10, freqy=0, duration=None, kp=0.9,ki = 0.0, kd =0.0,  moveback=False, state0=None):
+    """Moving the absolute position of the head in depth and width following two
+    sine functions around state0.
+    Need ab2xy calibration matrix.
+    Duration is in seconds. If None specified, continues until stopped."""
+    functions = [
+        lambda t: amplitude * np.sin(2*np.pi*freq*t)
+        for amplitude, freq in zip([amplitudex, amplitudey], [reqx, freqy])
+        ]
+    timedep_position(ab2xy, outname, functions=functions, duration=duration, kp=kp,ki = ki, kd =kd,  moveback=moveback, state0=state0)
