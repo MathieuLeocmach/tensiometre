@@ -73,7 +73,7 @@ if __name__ == '__main__':
     print(f"deflection wrt force free: {after_gelation.deflection - force_free.deflection}")
 
     now = datetime.now().strftime('%Y%m%d_%H%M')
-    print(f"{now}: Estimate shear modulus of the gel by step strains<3µm. Repated 3 times.")
+    print(f"{now}: Estimate shear modulus of the gel by step strains<3µm. Repeated 3 times.")
     for k in range(1,4):
         dxs = np.arange(0,10,3).astype(float)
         dxs = np.append(dxs, 0.0)
@@ -102,8 +102,8 @@ if __name__ == '__main__':
             avgY = Y[-100:].mean() #(Y[-100:] + 16*y_ag[-100:] - y[-100:]).mean()
             stdX[i] = np.std(X[-100:])
             stdY[i] = np.std(Y[-100:])#np.std(Y[-100:]+ 16*y_ag[-100:] - y[-100:])
-            dXs[i] = avgX - after_relax.deflection[0]
-            dYs[i] = avgY - after_relax.deflection[1]
+            dXs[i] = avgX - after_gelation.deflection[0]
+            dYs[i] = avgY - after_gelation.deflection[1]
 
         np.savetxt((datetime.now().strftime('%Y%m%d_%H%M_stressvsshear_method2.txt')),(dxs,dXs,dYs,stdX,stdY))
         #Stress strain linear rheology for linear regime
@@ -120,7 +120,7 @@ if __name__ == '__main__':
 
     now = datetime.now().strftime('%Y%m%d_%H%M')
     print(f"{now}: Apply the constant stress")
-    h = (before_creep.head_to_ground - touching_state.head_to_ground)[1]
+    h = (after_linear_rheology.head_to_ground - touching_state.head_to_ground)[1]
     defl = args.stress*module*h # calculated from the linear rheology
     print(f'The applied deflection will be {defl:0.3f} um')
     now = datetime.now().strftime('%Y%m%d_%H%M')
