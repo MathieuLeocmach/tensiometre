@@ -19,6 +19,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Procedure to apply a constant stress while maintaining a gap of 100µm.')
     parser.add_argument('stress', type=float, help = """Stress to apply, in units of the measured modulus.""")
     parser.add_argument('calibrationfilename', type=str, help='path and name of the ab2xy calibration file. Expects a .npy.')
+    parse.add_argument('--freq', type=float, default=0.1, help='Frequency of the oscillations in X during gelation (Hz).')
+    parse.add_argument('--ampl', type=float, default=3, help='Amplitude of the oscillations in X during gelation (µm).')
 
     args = parser.parse_args()
     ab2xy = np.load(args.calibrationfilename)
@@ -53,7 +55,7 @@ if __name__ == '__main__':
     mechtest3sensors.oscillating_position(
         ab2xy,
         f'maintain_gap_100um_oscillateX_{now}.raw',
-        amplitudex = 2, amplitudey=0, freqx=0.1, freqy=0,
+        amplitudex = args.ampl, amplitudey=0, freqx=args.freq, freqy=0,
         duration=3600, kp=[0.1,0.01], ki=[0,1e-5],
         moveback=False, state0=force_free
     )
