@@ -157,7 +157,7 @@ if __name__ == '__main__':
     defl = args.stress*module*h # calculated from the linear rheology
     print(f'The applied deflection will be {defl:0.3f} um')
     now = datetime.now().strftime('%Y%m%d_%H%M')
-    utname = f'add_constant_deflectionX{defl:0.3f}_stay_constant_positiony_{now}.raw'
+    outname = f'add_constant_deflectionX{defl:0.3f}_stay_constant_positiony_{now}.raw'
     mechtest3sensors.add_constant_deflectionX_stay_constant_positiony(
         outname,
         ab2xy,
