@@ -329,8 +329,9 @@ def oscillating_position(ab2xy, outname, amplitudex, amplitudey=0, freqx=10, fre
     sine functions around state0.
     Need ab2xy calibration matrix.
     Duration is in seconds. If None specified, continues until stopped."""
-    functions = [
-        lambda t: amplitude * np.sin(2*np.pi*freq*t)
-        for amplitude, freq in zip([amplitudex, amplitudey], [reqx, freqy])
-        ]
-    timedep_position(ab2xy, outname, functions=functions, duration=duration, kp=kp,ki = ki, kd =kd,  moveback=moveback, state0=state0)
+    functionx = lambda t: amplitudex * np.sin(2*np.pi*freqx*t)
+    functiony = lambda t: amplitudey * np.sin(2*np.pi*freqy*t)
+    timedep_position(
+        ab2xy, outname, functions=[functionx, functiony], duration=duration,
+        kp=kp,ki = ki, kd =kd, moveback=moveback, state0=state0
+        )
