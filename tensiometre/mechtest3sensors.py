@@ -309,6 +309,7 @@ def timedep_position(ab2xy, outname, functions, duration=None, kp=0.9,ki = 0.0, 
                 try:
                     t = time.time() - t0
                     while (duration is None) or (t < duration):
+                        t = time.time() - t0
                         for pid, p0, function in zip(pids, initialposition, functions):
                             pid.setPoint = p0 + function(t)
 
