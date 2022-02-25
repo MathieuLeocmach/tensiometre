@@ -335,3 +335,76 @@ def oscillating_position(ab2xy, outname, amplitudex, amplitudey=0, freqx=10, fre
         ab2xy, outname, functions=[functionx, functiony], duration=duration,
         kp=kp,ki = ki, kd =kd, moveback=moveback, state0=state0
         )
+
+def timedep_armX_positionY(ab2xy, outname, functions, duration=None, kp=0.9,ki = 0.0, kd =0.0,  moveback=False, state0=None):
+    """Moving the absolute position of the head in depth (Y) and the arm position in Y following two
+    time-dependent functions around state0.
+    Need ab2xy calibration matrix.
+    Duration is in seconds. If None specified, continues until stopped."""
+    if not hasattr(kp, "__len__"):
+        kps = [kp, kp]
+    else:
+        kps = kp
+    if not hasattr(ki, "__len__"):
+        kis = [ki,ki]
+    else:
+        kis = ki
+    if not hasattr(kd, "__len__"):
+        kds = [kd,kd]
+    else:
+        kds = kd
+    assert len(kps) == 2
+    assert len(kis) == 2
+    assert len(kds) == 2
+    assert len(functions) == 2
+    with ExitStack() as stack:
+        sensors = [stack.enter_context(closing(DT3100(f'169.254.{3+i}.100'))) for i in range(3)]
+        actuator = stack.enter_context(closing(MPC385()))
+        #setting up sensors
+        for sensor in sensors:
+            sensor.set_averaging_type(3)
+            sensor.set_averaging_number(3)
+        if state0 is None:
+            #remember original positions of the sensors and actuator
+            state0 = State().read(sensors, actuator, ab2xy)
+        #setting up PID, in microns
+        pids = []
+        initialposition = [state0.arm_to_ground[0], state0.head_to_ground[1]]
+        for s, kp,ki,kd in zip(initialposition, kps,kis,kds):
+            pid = PID(kp, ki, kd)
+            pid.setPoint = s
+            pids.append(pid)
+        try:
+            with open(outname, "wb") as fout:
+                m = moverPID.armX_position_Y_3sensors(sensors, actuator, ab2xy, pids, outputFile=fout)
+                t0 = time.time()
+                m.start()
+                try:
+                    t = time.time() - t0
+                    while (duration is None) or (t < duration):
+                        t = time.time() - t0
+                        for pid, p0, function in zip(pids, initialposition, functions):
+                            pid.setPoint = p0 + function(t)
+
+                except KeyboardInterrupt:
+                    pass
+                finally:
+                    #stop PID thread
+                    m.go = False
+                    m.join()
+        finally:
+            if moveback:
+                #move the actuator back to its original position
+                actuator.move_to(*actuator.um2integer_step(state0.actuator_pos))
+
+def oscillating_armX_positionY(ab2xy, outname, amplitudex, amplitudey=0, freqx=10, freqy=0, duration=None, kp=0.9,ki = 0.0, kd =0.0,  moveback=False, state0=None):
+    """Moving the absolute position of the head in depth and width following two
+    sine functions around state0.
+    Need ab2xy calibration matrix.
+    Duration is in seconds. If None specified, continues until stopped."""
+    functionx = lambda t: amplitudex * np.sin(2*np.pi*freqx*t)
+    functiony = lambda t: amplitudey * np.sin(2*np.pi*freqy*t)
+    timedep_armX_positionY(
+        ab2xy, outname, functions=[functionx, functiony], duration=duration,
+        kp=kp,ki = ki, kd =kd, moveback=moveback, state0=state0
+        )
