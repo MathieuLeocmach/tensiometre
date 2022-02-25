@@ -15,12 +15,30 @@ def measure_state():
         mpc = stack.enter_context(closing(MPC385()))
         return mechtest3sensors.State().read(sensors, mpc, ab2xy)
 
+from scipy.signal import chirp
+def optimal_chirp(t, amplitude=10, f1=1e-2, f2=1, T=66, r=0.1, delay=4):
+    td = np.mod(t,T+delay)
+    tt = td-delay
+    chrp = chirp(tt, f1, T, f2, phi=90, method='logarithmic')
+    chrp = np.where(
+        tt<0, 0, np.where(
+            2*tt < r*T,
+            np.cos(np.pi/r*(tt/T-r/2))**2 * chrp,
+            np.where(
+                tt/T > 1 - r/2,
+                np.cos(np.pi/r*(tt/T-1+r/2))**2 * chrp,
+                chrp
+            )
+        )
+    )
+    return amplitude*chrp
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Procedure to apply a constant stress while maintaining a gap of 100µm.')
     parser.add_argument('stress', type=float, help = """Stress to apply, in units of the measured modulus.""")
     parser.add_argument('calibrationfilename', type=str, help='path and name of the ab2xy calibration file. Expects a .npy.')
-    parse.add_argument('--freq', type=float, default=0.1, help='Frequency of the oscillations in X during gelation (Hz).')
-    parse.add_argument('--ampl', type=float, default=3, help='Amplitude of the oscillations in X during gelation (µm).')
+    parser.add_argument('--freq', type=float, default=0.1, help='Frequency of the oscillations in X during gelation (Hz).')
+    parser.add_argument('--ampl', type=float, default=3, help='Amplitude of the oscillations in X during gelation (µm).')
 
     args = parser.parse_args()
     ab2xy = np.load(args.calibrationfilename)
@@ -50,15 +68,28 @@ if __name__ == '__main__':
     print(f"position wrt touching: {force_free.head_to_ground - touching_state.head_to_ground}")
     print(f"deflection wrt touching: {force_free.deflection - touching_state.deflection}")
 
+    functions = [
+        lambda t: optimal_chirp(t, amplitude=args.ampl),
+        lambda t: 0
+    ]
     now = datetime.now().strftime('%Y%m%d_%H%M')
-    print(f"{now}: Maintain the gap size for 1h while oscillating in shear 2µm 0.1Hz.")
-    mechtest3sensors.oscillating_position(
+    print(f"{now}: Maintain the gap size while chirping in shear with amplitude {args.ampl} microns.")
+    mechtest3sensors.timedep_armX_positionY(
         ab2xy,
-        f'maintain_gap_100um_oscillateX_{now}.raw',
-        amplitudex = args.ampl, amplitudey=0, freqx=args.freq, freqy=0,
-        duration=3600, kp=[0.1,0.01], ki=[0,1e-5],
+        f'maintain_gap_100um_armchirpX_{now}.raw',
+        functions,
+        duration=3600, kp=[1,0.01], ki=[0,1e-5],
         moveback=False, state0=force_free
     )
+    # now = datetime.now().strftime('%Y%m%d_%H%M')
+    # print(f"{now}: Maintain the gap size for 1h while oscillating in shear 2µm 0.1Hz.")
+    # mechtest3sensors.oscillating_position(
+    #     ab2xy,
+    #     f'maintain_gap_100um_oscillateX_{now}.raw',
+    #     amplitudex = args.ampl, amplitudey=0, freqx=args.freq, freqy=0,
+    #     duration=3600, kp=[0.1,0.01], ki=[0,1e-5],
+    #     moveback=False, state0=force_free
+    # )
     # print(f"{now}: Maintain the gap size for 1h.")
     # mechtest3sensors.move_to_constant_positions(
     #     ab2xy,
