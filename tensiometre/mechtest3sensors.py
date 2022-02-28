@@ -312,7 +312,7 @@ def timedep_position(ab2xy, outname, functions, duration=None, kp=0.9,ki = 0.0, 
                         t = time.time() - t0
                         for pid, p0, function in zip(pids, initialposition, functions):
                             pid.setPoint = p0 + function(t)
-
+                        time.sleep(0.001) #no use to update above 1kHz
                 except KeyboardInterrupt:
                     pass
                 finally:
@@ -385,6 +385,7 @@ def timedep_armX_positionY(ab2xy, outname, functions, duration=None, kp=0.9,ki =
                         t = time.time() - t0
                         for pid, p0, function in zip(pids, initialposition, functions):
                             pid.setPoint = p0 + function(t)
+                        time.sleep(0.001) #no use to update above 1kHz
 
                 except KeyboardInterrupt:
                     pass
