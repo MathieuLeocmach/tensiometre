@@ -155,7 +155,7 @@ if __name__ == '__main__':
     freqs, Gs = chirp2moduli(
         extract_chips(
             interpolate2(
-                read_data(f'maintain_gap_100um_armchirpX_{now}.raw'),
+                read_data(chirpname),
                 T=args.T),
             T=args.T, delay=args.delay),
         T=args.T)
