@@ -69,7 +69,10 @@ def chirp2moduli(chirps, T=66):
 
 def fit_modulus(freqs, Gs, M=45):
     func = lambda x, a, b: a*x+b
-    alpha, beta = curve_fit(func, np.log(freqs[1:M]), np.log(Gs.real[1:M]), [0.15,1])[0]
+    good = Gs.real>0
+    good[0] = False
+    good[M:] = False
+    alpha, beta = curve_fit(func, np.log(freqs[good]), np.log(Gs.real[good]), [0.15,1])[0]
     return alpha, np.exp(beta)
 
 if __name__ == '__main__':
@@ -160,7 +163,7 @@ if __name__ == '__main__':
             T=args.T, delay=args.delay),
         T=args.T)
     alpha, modulus = fit_modulus(freqs, Gs[-1], M=45)
-    print(f'Module deflection vs displacement @1Hz: {module}. Power alpha={alpha}')
+    print(f'Module deflection vs displacement @1Hz: {modulus}. Power alpha={alpha}')
 
 
     # now = datetime.now().strftime('%Y%m%d_%H%M')
@@ -212,7 +215,7 @@ if __name__ == '__main__':
     now = datetime.now().strftime('%Y%m%d_%H%M')
     print(f"{now}: Apply the constant stress")
     h = (after_gelation.head_to_ground - touching_state.head_to_ground)[1]
-    defl = args.stress*module*h # calculated from the linear rheology
+    defl = args.stress*modulus*h # calculated from the linear rheology
     print(f'The applied deflection will be {defl:0.3f} um')
     now = datetime.now().strftime('%Y%m%d_%H%M')
     outname = f'add_constant_deflectionX{defl:0.3f}_stay_constant_positiony_{now}.raw'
