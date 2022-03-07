@@ -215,7 +215,18 @@ if __name__ == '__main__':
     now = datetime.now().strftime('%Y%m%d_%H%M')
     print(f"{now}: Apply the constant stress")
     h = (after_gelation.head_to_ground - touching_state.head_to_ground)[1]
-    defl = args.stress*modulus*h # calculated from the linear rheology
+    defl = -args.stress*modulus*h # calculated from the linear rheology
+    print(f'We plan to apply a deflection of {defl:0.3f} um')
+    #Present sensor readings
+    xy2ab = np.linalg.inv(ab2xy)
+    a0, b0 = xy2ab @ after_gelation.deflection
+    #minimum deflexion
+    mindefl = 0.9*max(-a0/xy2ab[0,0], -b0/xy2ab[1,0])
+    #maximum deflexion
+    maxdefl = 0.9*min((800-a0)/xy2ab[0,0], (800-b0)/xy2ab[1,0])
+    print(f'Deflection must be between {mindefl:0.3f} um and {maxdefl:0.3f} um')
+    #saturates deflection
+    defl = np.maximum(mindefl, np.minimum(maxdefl, defl))
     print(f'The applied deflection will be {defl:0.3f} um')
     now = datetime.now().strftime('%Y%m%d_%H%M')
     outname = f'add_constant_deflectionX{defl:0.3f}_stay_constant_positiony_{now}.raw'
@@ -223,7 +234,7 @@ if __name__ == '__main__':
         outname,
         ab2xy,
         kp=[0.2,0.1], ki=[0.001,0.001], kd =[0.0,0.0],
-        dX=-defl,
+        dX=defl,
         moveback= True, state0 = force_free, maxYdispl = 300
     )
     after_creep = measure_state()
