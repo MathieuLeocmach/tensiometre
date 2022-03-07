@@ -30,7 +30,11 @@ def get_resource_manager():
 def recover(IPAddress='169.254.3.100'):
     """Recover the basic state of the instrument with low-level commands"""
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect((IPAddress, 10001))
+    try:
+        sock.connect((IPAddress, 10001))
+    except ConnectionRefusedError:
+        time.sleep(1)
+        sock.connect((IPAddress, 10001))
     sock.send(b'$MMD0\r')
     time.sleep(0.04)
     answer = sock.recv(1024*4)
@@ -111,7 +115,11 @@ class DT3100:
     def __init__(self, IPAddress = '169.254.3.100'):
         self.IPAddress = IPAddress
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect((IPAddress, 10001))
+        try:
+            self.sock.connect((IPAddress, 10001))
+        except ConnectionRefusedError:
+            time.sleep(1)
+            self.sock.connect((IPAddress, 10001))
         #self.inst = get_resource_manager().open_resource('TCPIP::%s::10001::SOCKET'%IPAddress)
         #self.inst.write_termination = '\r'
         #self.inst.read_termination = '\r\n'
