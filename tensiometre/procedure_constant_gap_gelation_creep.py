@@ -220,10 +220,23 @@ if __name__ == '__main__':
     #Present sensor readings
     xy2ab = np.linalg.inv(ab2xy)
     a0, b0 = xy2ab @ after_gelation.deflection
-    #minimum deflexion
-    mindefl = 0.9*max(-a0/xy2ab[0,0], -b0/xy2ab[1,0])
-    #maximum deflexion
-    maxdefl = 0.9*min((800-a0)/xy2ab[0,0], (800-b0)/xy2ab[1,0])
+    #minimum and maximum deflexion depend on the sign of the xy2ab matrix elements
+    #here we suppose that there is no Delta Y
+    if xy2ab[0,0]>0:
+        mindefl = -a0/xy2ab[0,0]
+        maxdefl = (800-a0)/xy2ab[0,0]
+    else:
+        mindefl = (800-a0)/xy2ab[0,0]
+        maxdefl = -a0/xy2ab[0,0]
+    if xy2ab[1,0]>0:
+        mindefl = max(mindefl, -b0/xy2ab[1,0])
+        maxdefl = min(maxdefl, (800-b0)/xy2ab[1,0])
+    else:
+        mindefl = max(mindefl, (800-b0)/xy2ab[1,0])
+        maxdefl = min(maxdefl, -b0/xy2ab[1,0])
+    #security coefficient of 0.9
+    mindefl *=0.9
+    maxdefl *=0.9
     print(f'Deflection must be between {mindefl:0.3f} um and {maxdefl:0.3f} um')
     #saturates deflection
     defl = np.maximum(mindefl, np.minimum(maxdefl, defl))
