@@ -6,6 +6,7 @@ from scipy.optimize import curve_fit
 from tensiometre.dt3100 import DT3100, recover
 from tensiometre.mpc385 import MPC385
 from tensiometre import mechtest3sensors
+from tensiometre.chirp import optimal_chirp, load_chirp_moduli, fit_powerlaw_modulus
 from tensiometre.show_measurements import show_measurement
 
 
@@ -33,58 +34,19 @@ def optimal_chirp(t, amplitude=10, f1=1e-2, f2=1, T=66, r=0.1, delay=4):
     )
     return amplitude*chrp
 
-from scipy.interpolate import interp1d
-from scipy.ndimage import binary_opening
-
-def read_data(outname):
-    data = np.fromfile(outname)
-    return data.reshape((len(data)//6,6))
-
-def interpolate2(data, T=66):
-    dtm = (data[-1,0]-data[0,0])/len(data)
-    delta = T/dtm
-    subsampling = (2**np.ceil(np.log2(delta)))/delta
-    t = np.arange(int(len(data)*subsampling)) * dtm / subsampling + data[0,0]
-    return interp1d(data[:,0], data, axis=0)(t)
-
-def extract_chips(data2, T=66, delay=4):
-    t, x = data2.T[:2]
-    dt = t[1]-t[0]
-    delta = int(T/dt)
-    #intervals where the exitation is not changing during delay
-    er = binary_opening(np.abs(np.diff(x))<1/32, np.ones(int(delay//dt), bool))
-    descending = np.where(er[:-1] & ~er[1:])[0]
-    if descending[-1]+delta > len(data2):
-        descending = descending[:-1]
-    chirps = np.zeros((len(descending), delta, data2.shape[1]))
-    for i, n in enumerate(descending):
-        chirps[i] = data2[n:n+delta]
-    return chirps
-
-def chirp2moduli(chirps, T=66):
-    fourier = np.fft.rfft(chirps, axis=1)
-    Gs = -fourier[...,3] / (fourier[...,1]+fourier[...,3])
-    freqs = np.arange(chirps.shape[1]//2+1)/T
-    return freqs, Gs
-
-def fit_modulus(freqs, Gs, M=45):
-    func = lambda x, a, b: a*x+b
-    good = Gs.real>0
-    good[0] = False
-    good[M:] = False
-    alpha, beta = curve_fit(func, np.log(freqs[good]), np.log(Gs.real[good]), [0.15,1])[0]
-    return alpha, np.exp(beta)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Procedure to apply a constant stress while maintaining a gap of 100µm.')
     parser.add_argument('stress', type=float, help = """Stress to apply, in units of the measured modulus.""")
     parser.add_argument('calibrationfilename', type=str, help='path and name of the ab2xy calibration file. Expects a .npy.')
-    parser.add_argument('--freq', type=float, default=0.1, help='Frequency of the oscillations in X during gelation (Hz).')
+    #parser.add_argument('--freq', type=float, default=0.1, help='Frequency of the oscillations in X during gelation (Hz).')
     parser.add_argument('--ampl', type=float, default=3, help='Amplitude of the chirp in X during gelation (µm).')
     parser.add_argument('--T', type=float, default=66, help='Duration of the chirps in X during gelation (s)')
-    parser.add_argument('--delay', type=float, default=66, help='Delay between the chirps in X during gelation (s)')
+    parser.add_argument('--delay', type=float, help='Delay between the chirps in X during gelation (s). By default T/16.')
 
     args = parser.parse_args()
+    if args.delay is None:
+        args.delay = args.T / 16
     ab2xy = np.load(args.calibrationfilename)
 
     recover(), recover('169.254.4.100'), recover('169.254.5.100')
@@ -155,14 +117,8 @@ if __name__ == '__main__':
 
     now = datetime.now().strftime('%Y%m%d_%H%M')
     print(f"{now}: Estimate shear modulus at 1Hz from the last chirp, extrapolating the power law.")
-    freqs, Gs = chirp2moduli(
-        extract_chips(
-            interpolate2(
-                read_data(chirpname),
-                T=args.T),
-            T=args.T, delay=args.delay),
-        T=args.T)
-    alpha, modulus = fit_modulus(freqs, Gs[-1], M=45)
+    freqs, Gs = load_chirp_moduli(chirpname, T=args.T, delay=args.delay)
+    alpha, modulus = fit_powerlaw_modulus(freqs, Gs[-1], M=190)
     print(f'Module deflection vs displacement @1Hz: {modulus}. Power alpha={alpha}')
 
 
