@@ -220,14 +220,19 @@ if __name__ == '__main__':
     #Present sensor readings
     xy2ab = np.linalg.inv(ab2xy)
     a0, b0 = xy2ab @ after_gelation.deflection
-    #minimum and maximum deflexion depend on the sign of the xy2ab matrix elements
+    #what is the condition on Delta X to keep sensor a in range?
+    #0 < a0 + Delta a < 800
+    #0 < a0 + xy2ab[0,0] * Delta X +  xy2ab[0,1] * Delta Y < 800
     #here we suppose that there is no Delta Y
+    #0 < a0 + xy2ab[0,0] * Delta X < 800
+    #minimum and maximum deflexion depend on the sign of the xy2ab matrix elements
     if xy2ab[0,0]>0:
         mindefl = -a0/xy2ab[0,0]
         maxdefl = (800-a0)/xy2ab[0,0]
     else:
         mindefl = (800-a0)/xy2ab[0,0]
         maxdefl = -a0/xy2ab[0,0]
+    #same for sensor b and combine the two conditions
     if xy2ab[1,0]>0:
         mindefl = max(mindefl, -b0/xy2ab[1,0])
         maxdefl = min(maxdefl, (800-b0)/xy2ab[1,0])
