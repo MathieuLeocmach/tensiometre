@@ -77,7 +77,7 @@ def load_chirp_moduli(filename, T, delay):
     return chirp2moduli(
         extract_chips(
             interpolate2(
-                read_data(chirpname),
+                read_data(filename),
                 T=T),
             T=T, delay=delay),
         T=T)
