@@ -40,9 +40,10 @@ if __name__ == '__main__':
     parser.add_argument('stress', type=float, help = """Stress to apply, in units of the measured modulus.""")
     parser.add_argument('calibrationfilename', type=str, help='path and name of the ab2xy calibration file. Expects a .npy.')
     parser.add_argument('--gap', type=float, default=100, help='Gap to open from the initial (touching) position. Default 100µm.')
-    #parser.add_argument('--freq', type=float, default=0.1, help='Frequency of the oscillations in X during gelation (Hz).')
+    parser.add_argument('--fmin', type=float, default=0.01, help='Lowest frequency of the chirp in X during gelation (Hz). Default 0.01Hz.')
+    parser.add_argument('--fmax', type=float, default=1, help='Highest frequency of the chirp in X during gelation (Hz). Default 1Hz.')
     parser.add_argument('--ampl', type=float, default=3, help='Amplitude of the chirp in X during gelation (µm).')
-    parser.add_argument('--T', type=float, default=66, help='Duration of the chirps in X during gelation (s)')
+    parser.add_argument('--T', type=float, default=198, help='Duration of the chirps in X during gelation (s)')
     parser.add_argument('--delay', type=float, help='Delay between the chirps in X during gelation (s). By default T/16.')
 
     args = parser.parse_args()
@@ -76,7 +77,10 @@ if __name__ == '__main__':
     print(f"deflection wrt touching: {force_free.deflection - touching_state.deflection}")
 
     functions = [
-        lambda t: optimal_chirp(t, amplitude=args.ampl, T=args.T, delay=args.delay),
+        lambda t: optimal_chirp(
+            t, amplitude=args.ampl, T=args.T, delay=args.delay,
+            f1=args.fmin, f2=args.fmax,
+            ),
         lambda t: 0
     ]
     now = datetime.now().strftime('%Y%m%d_%H%M')
