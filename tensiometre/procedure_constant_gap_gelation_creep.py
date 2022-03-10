@@ -39,6 +39,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Procedure to apply a constant stress while maintaining a gap of 100µm.')
     parser.add_argument('stress', type=float, help = """Stress to apply, in units of the measured modulus.""")
     parser.add_argument('calibrationfilename', type=str, help='path and name of the ab2xy calibration file. Expects a .npy.')
+    parser.add_argument('--gap', type=float, default=100, help='Gap to open from the initial (touching) position. Default 100µm.')
     #parser.add_argument('--freq', type=float, default=0.1, help='Frequency of the oscillations in X during gelation (Hz).')
     parser.add_argument('--ampl', type=float, default=3, help='Amplitude of the chirp in X during gelation (µm).')
     parser.add_argument('--T', type=float, default=66, help='Duration of the chirps in X during gelation (s)')
@@ -59,7 +60,7 @@ if __name__ == '__main__':
     touching_state.save(f'touching_{now}.npy')
 
     now = datetime.now().strftime('%Y%m%d_%H%M')
-    print(f"{now}: Lifting up by 100 µm to setup the initial gap size. Maintain 60s to ensure steady state.")
+    print(f"{now}: Lifting up by {args.gap} µm to setup the initial gap size. Maintain 60s to ensure steady state.")
     mechtest3sensors.move_to_constant_positions(
         ab2xy,
         outnames = [f'positon_from_bottom_100um_{now}.raw'],
