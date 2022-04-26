@@ -58,7 +58,11 @@ class MPC385:
     def query(self, command, pattern='', timeout=1):
         """Write a command and parse the answer using struct syntax, stripped of final CR byte. Timeout in seconds."""
         self.wait_writeable(timeout)
+        #ensure a delay between commands of 2ms, as wtritten in the manual
+        time.sleep(3e-3)
         self.port.write(command)
+        #ensure a delay between commands of 2ms, as wtritten in the manual
+        time.sleep(3e-3)
         s = struct.Struct(pattern)
         self.wait_readable(timeout)
         answer = self.port.read(s.size+1)
