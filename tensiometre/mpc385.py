@@ -99,7 +99,7 @@ class MPC385:
 
     def update_current_position(self):
         """Get the currently selected micromanipulator and its current position in term of motor microsteps"""
-        t = self.query(b'C', '=Biii')
+        t = self.query(b'C', '=Biii', timeout=10.)
         self.positions[t[0]-1] = t[1:]
         return t
 
