@@ -44,19 +44,19 @@ class MPC385:
         self.port.close()
 
     def wait_readable(self, timeout=1):
-        """wait for the interface to be readable"""
+        """wait for the interface to be readable during timeout seconds"""
         r, w, x = select.select([self.port], [], [], timeout)
         if self.port not in r:
             raise ConnectionError('Port not readable')
 
     def wait_writeable(self, timeout=1):
-        """wait for the interface to be writeable"""
+        """wait for the interface to be writeable during timeout seconds"""
         r, w, x = select.select([], [self.port], [], timeout)
         if self.port not in w:
             raise ConnectionError('Port not writeable')
 
     def query(self, command, pattern='', timeout=1):
-        """Write a command and parse the answer using struct syntax, stripped of final CR byte"""
+        """Write a command and parse the answer using struct syntax, stripped of final CR byte. Timeout in seconds."""
         self.wait_writeable(timeout)
         self.port.write(command)
         s = struct.Struct(pattern)
