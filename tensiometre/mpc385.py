@@ -2,6 +2,7 @@ from contextlib import closing
 import struct, time, select
 import numpy as np
 import serial
+import warnings
 
 #from pyftdi.ftdi import Ftdi
 #from pyftdi.serialext import serial_for_url
@@ -177,4 +178,12 @@ class MPC385:
         """Fast, stereotypic movement with firmware controlled velocity. Final position in microsteps."""
         for pos in [x,y,z]:
             self.check_in_range(pos)
-        self.query(struct.pack('=ciii', b'M', int(x),int(y),int(z)), timeout=10.)
+        try:
+            self.query(struct.pack('=ciii', b'M', int(x),int(y),int(z)), timeout=10.)
+        except ConnectionError as e:
+            self.interrupt_move()
+            warnings.warn(f'Due to "{e}" error, the move was interrupted.')
+
+    def interrupt_move(self):
+        """Interrupt move in progress"""
+        self.query(b'\x03', '')
